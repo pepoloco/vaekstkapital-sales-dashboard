@@ -1,6 +1,32 @@
+<<<<<<< HEAD
 node_modules/
 .next/
 .env
 .env.local
 .env.*.local
+=======
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+
+# Env files — NEVER commit these
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Misc
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+>>>>>>> ce1cf44ee7ca734993132862c09ae7a47580f7cb
 .vercel

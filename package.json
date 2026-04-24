@@ -1,10 +1,15 @@
 {
+<<<<<<< HEAD
   "name": "vaekstkapital-sales-dashboard",
+=======
+  "name": "vaekstkapital-sales",
+>>>>>>> ce1cf44ee7ca734993132862c09ae7a47580f7cb
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+<<<<<<< HEAD
     "start": "next start"
   },
   "dependencies": {
@@ -16,6 +21,21 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+=======
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "^18",
+    "react-dom": "^18",
+    "next-auth": "^4.24.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+>>>>>>> ce1cf44ee7ca734993132862c09ae7a47580f7cb
     "typescript": "^5"
   }
 }
