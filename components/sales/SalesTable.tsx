@@ -23,10 +23,13 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
     [...consultants]
       .filter(c => c.name.toLowerCase().includes(q.toLowerCase()))
       .sort((a, b) => {
-        const av = a[sk] as any
-        const bv = b[sk] as any
-        if (typeof av === "string") return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
-        return dir === "desc" ? bv - av : av - bv
+        const av = a[sk]
+        const bv = b[sk]
+        if (typeof av === "string" && typeof bv === "string")
+          return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
+        const na = (typeof av === "number" && isFinite(av)) ? av : 0
+        const nb = (typeof bv === "number" && isFinite(bv)) ? bv : 0
+        return dir === "desc" ? nb - na : na - nb
       }),
     [consultants, sk, dir, q]
   )
