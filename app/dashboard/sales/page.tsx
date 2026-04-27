@@ -1,19 +1,14 @@
 import KpiCards from "@/components/sales/KpiCards"
 import SalesTable from "@/components/sales/SalesTable"
-import { DashboardData } from "@/types/sales"
+import { fetchDashboardData } from "@/lib/hubspot/data"
 
-async function getData(): Promise<DashboardData> {
-  const base = process.env.NEXTAUTH_URL || "http://localhost:3000"
-  const res  = await fetch(`${base}/api/hubspot/sales`, { next: { revalidate: 3600 } })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
-}
+export const revalidate = 3600
 
 export default async function Page() {
-  let data: DashboardData
+  let data
   let error: string | null = null
   try {
-    data = await getData()
+    data = await fetchDashboardData()
   } catch (e: any) {
     error = e.message
     data  = { consultants: [], lastUpdated: new Date().toISOString(), periodStart: "", periodEnd: "" }

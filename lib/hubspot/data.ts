@@ -44,18 +44,21 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     (o: any) => activeIds.includes(String(o.id)) && o.firstName
   )
 
-  // 5. Contacts (requires crm.objects.contacts.read scope — degrade gracefully if missing)
+  // 5. Contacts — batched 3 owners per request (HubSpot filterGroups hard limit)
   let contacts: any[] = []
   if (activeIds.length > 0) {
-    try {
-      contacts = await fetchAll("/crm/v3/objects/contacts/search", {
-        filterGroups: activeIds.map(id => ({
-          filters: [{ propertyName: "hubspot_owner_id", operator: "EQ", value: id }],
-        })),
-        properties: ["hubspot_owner_id", "createdate"],
-        limit: 200,
-      })
-    } catch { /* contacts scope not enabled — hit rate and leads will show 0 */ }
+    const chunks: string[][] = []
+    for (let i = 0; i < activeIds.length; i += 3) chunks.push(activeIds.slice(i, i + 3))
+    const settled = await Promise.allSettled(
+      chunks.map(chunk =>
+        fetchAll("/crm/v3/objects/contacts/search", {
+          filterGroups: chunk.map(id => ({ filters: [{ propertyName: "hubspot_owner_id", operator: "EQ", value: id }] })),
+          properties: ["hubspot_owner_id", "createdate"],
+          limit: 200,
+        })
+      )
+    )
+    contacts = settled.flatMap(r => r.status === "fulfilled" ? r.value : [])
   }
 
   // 6. Build per-consultant data
