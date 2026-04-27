@@ -173,23 +173,28 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const rawList = await Promise.all(candidateOwners.map(async (owner: any) => {
     const oid = String(owner.id)
 
+    // Filter by hs_created_by_user_id (the person who BOOKED the meeting = "Activity Created By")
+    // NOT hubspot_owner_id which is the sales person the meeting is assigned to ("Activity Assigned To")
+    const userId = String(owner.userId ?? "")
     let meetings: any[] = []
-    try {
-      meetings = await fetchAll("/crm/v3/objects/meetings/search", {
-        filterGroups: [{ filters: [
-          { propertyName: "hubspot_owner_id",      operator: "EQ",  value: oid },
-          { propertyName: "hs_meeting_start_time", operator: "GTE", value: win.toString() },
-        ]}],
-        properties: [
-          "hs_meeting_title",
-          "hs_meeting_start_time",
-          "hs_internal_meeting_notes",
-          "hs_meeting_type",
-          "hs_meeting_outcome",
-        ],
-        limit: 200,
-      })
-    } catch { /* meetings scope may not be enabled */ }
+    if (userId) {
+      try {
+        meetings = await fetchAll("/crm/v3/objects/meetings/search", {
+          filterGroups: [{ filters: [
+            { propertyName: "hs_created_by_user_id", operator: "EQ",  value: userId },
+            { propertyName: "hs_meeting_start_time", operator: "GTE", value: win.toString() },
+          ]}],
+          properties: [
+            "hs_meeting_title",
+            "hs_meeting_start_time",
+            "hs_internal_meeting_notes",
+            "hs_meeting_type",
+            "hs_meeting_outcome",
+          ],
+          limit: 200,
+        })
+      } catch { /* meetings scope may not be enabled */ }
+    }
 
     // Batch-fetch company associations so we can build correct deep-link URLs
     // URL format: /record/0-2/{companyId}/view/1?engagement={meetingId}
