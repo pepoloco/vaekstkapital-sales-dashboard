@@ -35,6 +35,15 @@ function matchesTeam(name: string): boolean {
   return TEAM_PATTERNS.some(p => n === p || n.includes(p))
 }
 
+// Handles both HubSpot formats: numeric ms string ("1744018200000") and ISO string ("2026-04-07T…")
+function parseHsMs(val: string | undefined | null): number {
+  if (!val) return 0
+  const n = Number(val)
+  if (n > 1e12) return n          // looks like a valid Unix ms timestamp
+  const d = Date.parse(val)       // ISO string fallback
+  return d > 0 ? d : 0
+}
+
 function relWeek(ts: number, windowStart: number): number {
   const days = (ts - windowStart) / 86400000
   return Math.max(1, Math.min(12, Math.floor(days / 7) + 1))
@@ -245,8 +254,8 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
     meetings.forEach((m: any) => {
       // Use hs_createdate (booking date) for weekly bucketing — matches HubSpot's "Create Date" filter
-      const bookTs  = m.properties?.hs_createdate         ? parseInt(m.properties.hs_createdate)         : 0
-      const startTs = m.properties?.hs_meeting_start_time ? parseInt(m.properties.hs_meeting_start_time) : 0
+      const bookTs  = parseHsMs(m.properties?.hs_createdate)
+      const startTs = parseHsMs(m.properties?.hs_meeting_start_time)
       const ref: MeetingRef = {
         id:        String(m.id),
         title:     (m.properties?.hs_meeting_title || "").trim() || "Møde",
