@@ -71,7 +71,7 @@ export default function DashboardLayout() {
       <main className="content">
         <div className="page-hd">
           <h1 className="ttl">Sales Activity</h1>
-          <p className="sub">Vaekstkapital Group — Team Denmark, ekskl. testbrugere</p>
+          <p className="sub">Vaekstkapital Group — Team Denmark</p>
           {period && <p className="sub-meta">{period}</p>}
         </div>
         {loading && (

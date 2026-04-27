@@ -23,8 +23,7 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
     [...consultants]
       .filter(c => c.name.toLowerCase().includes(q.toLowerCase()))
       .sort((a, b) => {
-        const av = a[sk]
-        const bv = b[sk]
+        const av = a[sk], bv = b[sk]
         if (typeof av === "string" && typeof bv === "string")
           return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
         const na = (typeof av === "number" && isFinite(av)) ? av : 0
@@ -59,7 +58,7 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
               <th className="tg" colSpan={3}>Performance</th>
               <th className="tg" colSpan={weekly ? 3 + 12 : 3}>Resultater (12 uger)</th>
               <th className="tg" colSpan={4}>Indsats (4 uger) · mål {KPI.physical}/{KPI.teams}/{KPI.dinner}/{KPI.webinar}/uge</th>
-              <th className="tg" colSpan={7}>Mødeudbytte (12 uger)</th>
+              <th className="tg" colSpan={9}>Mødeudbytte (12 uger)</th>
               <th className="tg" colSpan={4}>Metrics</th>
             </tr>
             <tr>
@@ -79,11 +78,13 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
               {th("Genplaceret", undefined, true)}
               {th("No Show", undefined, true)}
               {th("Aflyst", undefined, true)}
-              {th("Kvalificeret", undefined, true)}
+              {th("Inv. 3 mdr.", undefined, true)}
+              {th("Inv. 6–9 mdr.", undefined, true)}
+              {th("Ingen int.", undefined, true)}
               {th("Diskvalif.", undefined, true)}
               {th("Konv.Var.", "convDurationAvg", true)}
               {th("Hit Rate", "hitRate", true)}
-              {th("Kontakter Δ", "leadsDifference", true)}
+              {th("Kont. Δ", "leadsDifference", true)}
               {th("Kontakter", "numberOfLeads", true)}
             </tr>
           </thead>
@@ -91,8 +92,13 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
             {rows.length === 0 && <tr><td colSpan={99} className="empty">Ingen konsulenter fundet</td></tr>}
             {rows.map((c, i) => {
               const o = c.outcomes
-              const total = o.scheduled + o.completed + o.rescheduled + o.noShow + o.cancelled + o.qualified + o.disqualified
-              const pct = (n: number) => total > 0 ? <span className="pct"> {Math.round(n / total * 100)}%</span> : null
+              const total = Object.values(o).reduce((a, b) => a + b, 0)
+              const pct = (n: number) => (n > 0 && total > 0) ? <span className="pct"> {Math.round(n / total * 100)}%</span> : null
+              const cell = (n: number, cls = "") => (
+                <td className={`td mn c${cls ? " " + cls : ""}`}>
+                  {n > 0 ? <>{n}{pct(n)}</> : <span className="dm">–</span>}
+                </td>
+              )
               return (
                 <tr key={c.id} className={`row${i % 2 === 0 ? " even" : ""}`}>
                   <td className="td nm">{c.name}</td>
@@ -110,13 +116,19 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
                   <td className={`td mn c ${kpiClass(c.effort.teams, KPI.teams)}`}>{c.effort.teams}</td>
                   <td className={`td mn c ${kpiClass(c.effort.dinner, KPI.dinner)}`}>{c.effort.dinner}</td>
                   <td className={`td mn c ${kpiClass(c.effort.webinar, KPI.webinar)}`}>{c.effort.webinar}</td>
-                  <td className="td mn c">{o.scheduled > 0 ? o.scheduled : <span className="dm">–</span>}</td>
-                  <td className="td mn c gn">{o.completed}{pct(o.completed)}</td>
-                  <td className="td mn c">{o.rescheduled > 0 ? o.rescheduled : <span className="dm">–</span>}</td>
-                  <td className="td mn c rd">{o.noShow > 0 ? o.noShow : <span className="dm">–</span>}{o.noShow > 0 && pct(o.noShow)}</td>
-                  <td className="td mn c am">{o.cancelled > 0 ? o.cancelled : <span className="dm">–</span>}{o.cancelled > 0 && pct(o.cancelled)}</td>
-                  <td className="td mn c" style={{ color: "#0ea5e9", fontWeight: o.qualified > 0 ? 500 : undefined }}>{o.qualified > 0 ? o.qualified : <span className="dm">–</span>}{o.qualified > 0 && pct(o.qualified)}</td>
-                  <td className="td mn c" style={{ color: o.disqualified > 0 ? "#6b7280" : undefined }}>{o.disqualified > 0 ? o.disqualified : <span className="dm">–</span>}{o.disqualified > 0 && pct(o.disqualified)}</td>
+                  {cell(o.scheduled)}
+                  {cell(o.completed, "gn")}
+                  {cell(o.rescheduled)}
+                  {cell(o.noShow, "rd")}
+                  {cell(o.cancelled, "am")}
+                  <td className="td mn c" style={{ color: o.expectedWithin3 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin3 > 0 ? 500 : undefined }}>
+                    {o.expectedWithin3 > 0 ? <>{o.expectedWithin3}{pct(o.expectedWithin3)}</> : <span className="dm">–</span>}
+                  </td>
+                  <td className="td mn c" style={{ color: o.expectedWithin6 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin6 > 0 ? 500 : undefined }}>
+                    {o.expectedWithin6 > 0 ? <>{o.expectedWithin6}{pct(o.expectedWithin6)}</> : <span className="dm">–</span>}
+                  </td>
+                  {cell(o.noInterest)}
+                  {cell(o.disqualifiedMeeting)}
                   <td className="td mn c">{c.convDurationAvg.toFixed(1)}m</td>
                   <td className="td mn c">{(c.hitRate * 100).toFixed(1)}%</td>
                   <td className={`td mn c ${c.leadsDifference >= 0 ? "gn" : "rd"}`}>{c.leadsDifference >= 0 ? "+" : ""}{c.leadsDifference}</td>
