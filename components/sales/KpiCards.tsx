@@ -11,20 +11,20 @@ export default function KpiCards({ consultants }: { consultants: Consultant[] })
   const avgSalesIdx  = n ? Math.round(consultants.reduce((s, c) => s + c.salesIndex, 0)  / n) : 0
 
   const cards = [
-    { label: "Total Revenue",     sub: "12 weeks",        value: `€${totalRevenue.toLocaleString("da-DK")}`, color: "#4ade80" },
-    { label: "Deals Closed",      sub: "12 weeks",        value: totalDeals,                                  color: "#60a5fa" },
-    { label: "Avg Hit Rate",      sub: "all consultants", value: `${(avgHitRate * 100).toFixed(1)}%`,         color: "#a78bfa" },
-    { label: "Trending Up",       sub: "4w vs prior 8w",  value: `${trending} / ${n}`,                       color: "#fb923c" },
-    { label: "Avg Meeting Index", sub: "team average",    value: avgMeetIdx,                                  color: "#f472b6" },
-    { label: "Avg Sales Index",   sub: "team average",    value: avgSalesIdx,                                 color: "#34d399" },
+    { label: "Total Omsætning",  sub: "12 uger",           value: `€${totalRevenue.toLocaleString("da-DK")}` },
+    { label: "Lukkede Deals",    sub: "12 uger",           value: String(totalDeals) },
+    { label: "Gns. Hit Rate",    sub: "alle konsulenter",  value: `${(avgHitRate * 100).toFixed(1)}%` },
+    { label: "Positiv Trend",    sub: "4 uger vs. 8 uger", value: `${trending} / ${n}` },
+    { label: "Gns. Møde Index",  sub: "team gennemsnit",   value: String(avgMeetIdx) },
+    { label: "Gns. Salgs Index", sub: "team gennemsnit",   value: String(avgSalesIdx) },
   ]
 
   return (
     <div className="kpi-grid">
       {cards.map(c => (
-        <div key={c.label} className="kpi-card" style={{ "--accent": c.color } as React.CSSProperties}>
-          <div className="kpi-value">{c.value}</div>
-          <div className="kpi-label">{c.label}</div>
+        <div key={c.label} className="kpi-card">
+          <div className="kpi-lbl">{c.label}</div>
+          <div className="kpi-val">{c.value}</div>
           <div className="kpi-sub">{c.sub}</div>
         </div>
       ))}

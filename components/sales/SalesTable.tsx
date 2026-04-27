@@ -32,47 +32,50 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
   return (
     <div className="tw">
       <div className="bar">
-        <input className="srch" placeholder="Search consultants…" value={q} onChange={e => setQ(e.target.value)} />
-        <button className={`tbtn${weekly ? " on" : ""}`} onClick={() => setWeekly(v => !v)}>
-          {weekly ? "Hide" : "Show"} W1–W12
-        </button>
+        <span className="sec-ttl">Konsulenter</span>
+        <div className="bar-r">
+          <input className="srch" placeholder="Søg konsulenter…" value={q} onChange={e => setQ(e.target.value)} />
+          <button className={`tbtn${weekly ? " on" : ""}`} onClick={() => setWeekly(v => !v)}>
+            {weekly ? "Skjul" : "Vis"} U1–U12
+          </button>
+        </div>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="tbl">
           <thead>
             <tr>
               <th className="tg" colSpan={4}>Performance</th>
-              <th className="tg" colSpan={weekly ? 3 + 12 : 3}>Results (12 weeks)</th>
-              <th className="tg" colSpan={4}>Effort (4 weeks)</th>
+              <th className="tg" colSpan={weekly ? 3 + 12 : 3}>Resultater (12 uger)</th>
+              <th className="tg" colSpan={4}>Indsats (4 uger)</th>
               <th className="tg" colSpan={4}>Metrics</th>
             </tr>
             <tr>
-              {th("Consultant", "name")}
-              {th("Meeting Idx", "meetingIndex", true)}
-              {th("Sales Idx", "salesIndex", true)}
-              {th("Trending", undefined, true)}
-              {th("Amount", "totalAmount", true)}
-              {th("Count", "totalCount", true)}
-              {th("Ticket Size", "avgTicketSize", true)}
-              {weekly && Array.from({ length: 12 }, (_, i) => th(`W${i+1}`, undefined, true))}
-              {th("Physical", undefined, true)}
+              {th("Konsulent", "name")}
+              {th("Møde Idx", "meetingIndex", true)}
+              {th("Salgs Idx", "salesIndex", true)}
+              {th("Trend", undefined, true)}
+              {th("Beløb", "totalAmount", true)}
+              {th("Antal", "totalCount", true)}
+              {th("Ticket Str.", "avgTicketSize", true)}
+              {weekly && Array.from({ length: 12 }, (_, i) => th(`U${i+1}`, undefined, true))}
+              {th("Fysisk", undefined, true)}
               {th("Teams", undefined, true)}
-              {th("Dinner", undefined, true)}
+              {th("Middag", undefined, true)}
               {th("Webinar", undefined, true)}
-              {th("Conv.Dur", "convDurationAvg", true)}
+              {th("Konv.Var.", "convDurationAvg", true)}
               {th("Hit Rate", "hitRate", true)}
               {th("Leads Δ", "leadsDifference", true)}
               {th("# Leads", "numberOfLeads", true)}
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={99} className="empty">No consultants found</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={99} className="empty">Ingen konsulenter fundet</td></tr>}
             {rows.map((c, i) => (
               <tr key={c.id} className={`row${i % 2 === 0 ? " even" : ""}`}>
                 <td className="td nm">{c.name}</td>
                 <td className="td c"><IBar v={c.meetingIndex} /></td>
                 <td className="td c"><IBar v={c.salesIndex} /></td>
-                <td className="td c"><span className={`bdg ${c.trendPositive ? "pos" : "neg"}`}>{c.trendPositive ? "▲ Yes" : "▼ No"}</span></td>
+                <td className="td c"><span className={`bdg ${c.trendPositive ? "pos" : "neg"}`}>{c.trendPositive ? "▲ Ja" : "▼ Nej"}</span></td>
                 <td className="td mn r">€{c.totalAmount.toLocaleString("da-DK")}</td>
                 <td className="td mn c">{c.totalCount}</td>
                 <td className="td mn r">€{c.avgTicketSize.toLocaleString("da-DK")}</td>
@@ -99,8 +102,8 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
 }
 
 function IBar({ v }: { v: number }) {
-  const p = Math.min(v / 200, 1)
-  const bg = p >= 0.75 ? "#4ade80" : p >= 0.45 ? "#fbbf24" : "#f87171"
+  const p  = Math.min(v / 200, 1)
+  const bg = p >= 0.75 ? "#059669" : p >= 0.45 ? "#d97706" : "#dc2626"
   return (
     <div className="ib">
       <span className="iv">{v}</span>

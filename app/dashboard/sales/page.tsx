@@ -21,26 +21,33 @@ export default async function Page() {
 
   const period = data.periodStart
     ? `${new Date(data.periodStart).toLocaleDateString("da-DK", { day: "numeric", month: "short" })} – ${new Date(data.periodEnd).toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" })}`
-    : "Last 12 weeks"
+    : "Seneste 12 uger"
+
+  const upd    = new Date(data.lastUpdated)
+  const updStr = `${upd.toLocaleDateString("da-DK", { day: "numeric", month: "numeric", year: "numeric" })}, ${upd.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
 
   return (
-    <main className="page">
+    <div className="page">
       <header className="hdr">
         <div className="hl">
-          <div className="logo">VK</div>
-          <div>
-            <h1 className="ttl">Sales Activity</h1>
-            <p className="sub">Vaekstkapital · {period}</p>
-          </div>
+          <div className="logo-mark">VK</div>
+          <span className="logo-name">Vaekstkapital</span>
         </div>
         <div className="hr">
-          <span className="live"><span className="dot" />Live</span>
-          <span className="upd">Updated {new Date(data.lastUpdated).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}</span>
+          <span className="hdr-upd">Opdateret {updStr}</span>
+          <a href="/dashboard/sales" className="hdr-sync">↺ Synkronisér</a>
         </div>
       </header>
-      {error && <div className="err">⚠ HubSpot error: {error}</div>}
-      <div className="sec"><KpiCards consultants={data.consultants} /></div>
-      <div className="sec"><SalesTable consultants={data.consultants} /></div>
-    </main>
+      <main className="content">
+        <div className="page-hd">
+          <h1 className="ttl">Sales Activity</h1>
+          <p className="sub">Vaekstkapital Group — konsulentperformance, ekskl. testbrugere</p>
+          <p className="sub-meta">{period}</p>
+        </div>
+        {error && <div className="err">⚠ HubSpot fejl: {error}</div>}
+        <div className="sec"><KpiCards consultants={data.consultants} /></div>
+        <div className="sec"><SalesTable consultants={data.consultants} /></div>
+      </main>
+    </div>
   )
 }
