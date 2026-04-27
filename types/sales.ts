@@ -6,6 +6,7 @@ export interface WeeklyResult {
   webinar: number
   amount: number
   count: number
+  meetingIds: string[]
 }
 
 export interface MeetingOutcomes {
@@ -43,4 +44,6 @@ export interface DashboardData {
   lastUpdated: string
   periodStart: string
   periodEnd: string
+  portalId: string
+  hubDomain: string
 }

@@ -148,6 +148,14 @@ html, body {
 .td.rd { color: var(--rd); font-weight: 500; }
 .pct   { font-size: 10px; opacity: .7; }
 
+.kpi-link {
+  text-decoration: none; cursor: pointer; transition: box-shadow .15s, transform .1s;
+}
+.kpi-link:hover { box-shadow: 0 0 0 2px var(--accent); transform: translateY(-1px); }
+
+.wk-link { text-decoration: none; }
+.wk-link:hover .wd { background: var(--accent); color: #fff; }
+
 .bdg { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .bdg.pos { background: #f0fdf4; color: #059669; border: 1px solid #bbf7d0; }
 .bdg.neg { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }

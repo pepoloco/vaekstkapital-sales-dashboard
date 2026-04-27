@@ -9,6 +9,26 @@ const TEAM_PATTERNS = [
   "telemarketing tm",
 ]
 
+// Explicit name-based blocklist for non-telemarketing people.
+// Set HUBSPOT_ALLOWED_OWNER_IDS env var (comma-separated owner IDs) to bypass this entirely.
+const BLOCKED_NAMES = new Set([
+  "alexander roijen",
+  "frank eilersen",
+  "frank willis eilersen",
+  "ole krabbe",
+  "brian jensen",
+  "tobias pedersen",
+  "mikkel lauridsen",
+  "mathias bro jensen",
+  "jan hansen",
+  "jan erik dahl hansen",
+  "dk sales inbox",
+])
+
+function isBlocked(firstName: string, lastName: string): boolean {
+  return BLOCKED_NAMES.has(`${firstName} ${lastName}`.trim().toLowerCase())
+}
+
 function matchesTeam(name: string): boolean {
   const n = name.toLowerCase().trim()
   return TEAM_PATTERNS.some(p => n === p || n.includes(p))
@@ -39,6 +59,15 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const p8wStart = new Date(now.getTime() - 84 * 86400000)
   const p8wEnd   = new Date(now.getTime() - 28 * 86400000)
   const win      = w12Start.getTime()
+
+  // 0. Portal info (for deep links)
+  let portalId  = ""
+  let hubDomain = "app-eu1.hubspot.com"
+  try {
+    const me = await hsGet("/integrations/v1/me")
+    portalId  = String(me.portalId ?? "")
+    hubDomain = me.uiDomain ?? "app-eu1.hubspot.com"
+  } catch { /* non-critical */ }
 
   // 1. Owners
   const ownersData = await hsGet("/crm/v3/owners?limit=100")
@@ -89,15 +118,27 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     limit: 200,
   })
 
-  // 5. Candidate owners — team members, or fall back to active deal owners
+  // 5. Candidate owners
+  // Priority: explicit env var allowlist > team API > deal-owner fallback (with name blocklist)
+  const allowedOwnerIds = process.env.HUBSPOT_ALLOWED_OWNER_IDS
+    ? new Set(process.env.HUBSPOT_ALLOWED_OWNER_IDS.split(",").map(s => s.trim()).filter(Boolean))
+    : null
+
   let candidateOwners: any[]
-  if (useTeamFilter) {
-    candidateOwners = allOwners.filter((o: any) => o.firstName && teamOwnerIds.has(String(o.id)))
+  if (allowedOwnerIds) {
+    candidateOwners = allOwners.filter((o: any) => allowedOwnerIds.has(String(o.id)) && o.firstName)
+  } else if (useTeamFilter) {
+    candidateOwners = allOwners.filter((o: any) =>
+      o.firstName && teamOwnerIds.has(String(o.id)) && !isBlocked(o.firstName || "", o.lastName || "")
+    )
   } else {
     const activeIds = [...new Set(
       deals12w.map((d: any) => d.properties.hubspot_owner_id).filter(Boolean)
     )] as string[]
-    candidateOwners = allOwners.filter((o: any) => activeIds.includes(String(o.id)) && o.firstName)
+    candidateOwners = allOwners.filter((o: any) =>
+      activeIds.includes(String(o.id)) && o.firstName &&
+      !isBlocked(o.firstName || "", o.lastName || "")
+    )
   }
 
   // 6. Contacts — batched 3 owners per request (HubSpot filterGroups hard limit)
@@ -142,7 +183,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
     const wMap: Record<number, WeeklyResult> = {}
     for (let w = 1; w <= 12; w++) {
-      wMap[w] = { week: w, physical: 0, teams: 0, dinner: 0, webinar: 0, amount: 0, count: 0 }
+      wMap[w] = { week: w, physical: 0, teams: 0, dinner: 0, webinar: 0, amount: 0, count: 0, meetingIds: [] }
     }
 
     const outcomes: MeetingOutcomes = {
@@ -161,6 +202,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           m.properties?.hs_meeting_type           || "",
         )
         wMap[wIdx][type]++
+        if (m.id) wMap[wIdx].meetingIds.push(String(m.id))
       }
       outcomes[classifyOutcome(m.properties?.hs_meeting_outcome || "")]++
     })
@@ -238,5 +280,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     lastUpdated: new Date().toISOString(),
     periodStart: w12Start.toISOString(),
     periodEnd:   now.toISOString(),
+    portalId,
+    hubDomain,
   }
 }

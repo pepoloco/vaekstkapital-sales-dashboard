@@ -83,8 +83,8 @@ export default function DashboardLayout() {
         {!loading && error && <div className="err">⚠ HubSpot fejl: {error}</div>}
         {!loading && !error && data && (
           <>
-            <div className="sec"><KpiCards consultants={data.consultants} /></div>
-            <div className="sec"><SalesTable consultants={data.consultants} /></div>
+            <div className="sec"><KpiCards consultants={data.consultants} portalId={data.portalId} hubDomain={data.hubDomain} /></div>
+            <div className="sec"><SalesTable consultants={data.consultants} portalId={data.portalId} hubDomain={data.hubDomain} /></div>
           </>
         )}
       </main>

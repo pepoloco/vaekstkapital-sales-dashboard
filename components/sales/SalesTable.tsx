@@ -4,6 +4,12 @@ import { Consultant } from "@/types/sales"
 
 type SK = "name" | "meetingIndex" | "salesIndex" | "totalAmount" | "totalCount" | "avgTicketSize" | "convDurationAvg" | "hitRate" | "leadsDifference" | "numberOfLeads"
 
+interface Props {
+  consultants: Consultant[]
+  portalId: string
+  hubDomain: string
+}
+
 const KPI = { physical: 5, teams: 3, dinner: 2, webinar: 15 }
 
 function kpiClass(actual: number, weeklyTarget: number): string {
@@ -13,7 +19,7 @@ function kpiClass(actual: number, weeklyTarget: number): string {
   return "rd"
 }
 
-export default function SalesTable({ consultants }: { consultants: Consultant[] }) {
+export default function SalesTable({ consultants, portalId, hubDomain }: Props) {
   const [sk, setSk]         = useState<SK>("meetingIndex")
   const [dir, setDir]       = useState<"asc"|"desc">("desc")
   const [weekly, setWeekly] = useState(false)
@@ -110,7 +116,20 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
                   {weekly && Array.from({ length: 12 }, (_, i) => {
                     const w = c.weeklyResults.find(r => r.week === i + 1)
                     const t = w ? w.physical + w.teams + w.dinner + w.webinar : 0
-                    return <td key={i} className="td mn c">{t > 0 ? <span className="wd">{t}</span> : <span className="dm">–</span>}</td>
+                    const ids = w?.meetingIds ?? []
+                    const href = ids.length > 0 && portalId
+                      ? ids.length === 1
+                        ? `https://${hubDomain}/contacts/${portalId}/objects/0-47/${ids[0]}`
+                        : `https://${hubDomain}/contacts/${portalId}/objects/0-47`
+                      : null
+                    const badge = t > 0 ? <span className="wd">{t}</span> : <span className="dm">–</span>
+                    return (
+                      <td key={i} className="td mn c">
+                        {href
+                          ? <a href={href} target="_blank" rel="noopener noreferrer" className="wk-link" title={`${t} møde${t !== 1 ? "r" : ""} uge ${i+1}`}>{badge}</a>
+                          : badge}
+                      </td>
+                    )
                   })}
                   <td className={`td mn c ${kpiClass(c.effort.physical, KPI.physical)}`}>{c.effort.physical}</td>
                   <td className={`td mn c ${kpiClass(c.effort.teams, KPI.teams)}`}>{c.effort.teams}</td>
