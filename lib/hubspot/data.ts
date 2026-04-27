@@ -169,56 +169,65 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     contacts = settled.flatMap(r => r.status === "fulfilled" ? r.value : [])
   }
 
-  // 7. Per-consultant data
-  const rawList = await Promise.all(candidateOwners.map(async (owner: any) => {
-    const oid = String(owner.id)
+  // 7. All meetings in window — fetch once, group client-side by creator userId.
+  // HubSpot silently ignores hs_created_by_user_id as a search filter, so server-side
+  // per-consultant filtering does not work; we must do it ourselves after fetching.
+  let allMeetings: any[] = []
+  try {
+    allMeetings = await fetchAll("/crm/v3/objects/meetings/search", {
+      filterGroups: [{ filters: [
+        { propertyName: "hs_createdate", operator: "GTE", value: win.toString() },
+      ]}],
+      properties: [
+        "hs_meeting_title",
+        "hs_meeting_start_time",
+        "hs_createdate",
+        "hs_internal_meeting_notes",
+        "hs_meeting_type",
+        "hs_meeting_outcome",
+        "hs_created_by_user_id",
+      ],
+      limit: 200,
+    })
+  } catch { /* meetings scope may not be enabled */ }
 
-    // Filter by hs_created_by_user_id (the person who BOOKED the meeting = "Activity Created By")
-    // NOT hubspot_owner_id which is the sales person the meeting is assigned to ("Activity Assigned To")
-    const userId = String(owner.userId ?? "")
-    let meetings: any[] = []
-    if (userId) {
-      try {
-        meetings = await fetchAll("/crm/v3/objects/meetings/search", {
-          filterGroups: [{ filters: [
-            { propertyName: "hs_created_by_user_id", operator: "EQ",  value: userId },
-            { propertyName: "hs_meeting_start_time", operator: "GTE", value: win.toString() },
-          ]}],
-          properties: [
-            "hs_meeting_title",
-            "hs_meeting_start_time",
-            "hs_internal_meeting_notes",
-            "hs_meeting_type",
-            "hs_meeting_outcome",
-          ],
-          limit: 200,
-        })
-      } catch { /* meetings scope may not be enabled */ }
-    }
-
-    // Batch-fetch company associations so we can build correct deep-link URLs
-    // URL format: /record/0-2/{companyId}/view/1?engagement={meetingId}
-    const meetingToCompany: Record<string, string> = {}
-    if (meetings.length > 0) {
-      try {
-        const inputs = meetings.map(m => ({ id: String(m.id) }))
-        // Batch associations API accepts max 100 per request
-        const chunks: typeof inputs[] = []
-        for (let i = 0; i < inputs.length; i += 100) chunks.push(inputs.slice(i, i + 100))
-        const results = await Promise.all(
-          chunks.map(chunk =>
-            hsPost("/crm/v3/associations/meetings/companies/batch/read", { inputs: chunk })
-              .catch(() => ({ results: [] }))
-          )
+  // Company associations for all meetings at once (URL format: /record/0-2/{companyId}/view/1?engagement={id})
+  const meetingToCompany: Record<string, string> = {}
+  if (allMeetings.length > 0) {
+    try {
+      const inputs = allMeetings.map((m: any) => ({ id: String(m.id) }))
+      const chunks: typeof inputs[] = []
+      for (let i = 0; i < inputs.length; i += 100) chunks.push(inputs.slice(i, i + 100))
+      const results = await Promise.all(
+        chunks.map(chunk =>
+          hsPost("/crm/v3/associations/meetings/companies/batch/read", { inputs: chunk })
+            .catch(() => ({ results: [] }))
         )
-        for (const res of results) {
-          for (const r of (res.results ?? [])) {
-            const toArr: any[] = r.to ?? []
-            if (toArr.length > 0) meetingToCompany[String(r.from.id)] = String(toArr[0].id)
-          }
+      )
+      for (const res of results) {
+        for (const r of (res.results ?? [])) {
+          const toArr: any[] = r.to ?? []
+          if (toArr.length > 0) meetingToCompany[String(r.from.id)] = String(toArr[0].id)
         }
-      } catch { /* non-critical */ }
+      }
+    } catch { /* non-critical */ }
+  }
+
+  // Group by creator userId for O(1) per-consultant lookup
+  const meetingsByUserId: Record<string, any[]> = {}
+  for (const m of allMeetings) {
+    const uid = String(m.properties?.hs_created_by_user_id ?? "").trim()
+    if (uid && uid !== "0") {
+      if (!meetingsByUserId[uid]) meetingsByUserId[uid] = []
+      meetingsByUserId[uid].push(m)
     }
+  }
+
+  // 8. Per-consultant data
+  const rawList = candidateOwners.map((owner: any) => {
+    const oid      = String(owner.id)
+    const userId   = String(owner.userId ?? "")
+    const meetings = meetingsByUserId[userId] ?? []
 
     const wMap: Record<number, WeeklyResult> = {}
     for (let w = 1; w <= 12; w++) {
@@ -235,16 +244,17 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     }
 
     meetings.forEach((m: any) => {
-      const rawTime = m.properties?.hs_meeting_start_time
-      const ts      = rawTime ? parseInt(rawTime) : 0
+      // Use hs_createdate (booking date) for weekly bucketing — matches HubSpot's "Create Date" filter
+      const bookTs  = m.properties?.hs_createdate         ? parseInt(m.properties.hs_createdate)         : 0
+      const startTs = m.properties?.hs_meeting_start_time ? parseInt(m.properties.hs_meeting_start_time) : 0
       const ref: MeetingRef = {
         id:        String(m.id),
         title:     (m.properties?.hs_meeting_title || "").trim() || "Møde",
-        startTime: ts,
+        startTime: startTs,
         companyId: meetingToCompany[String(m.id)],
       }
-      if (ts) {
-        const wIdx = relWeek(ts, win)
+      if (bookTs) {
+        const wIdx = relWeek(bookTs, win)
         const type = classifyMeeting(
           m.properties?.hs_meeting_title          || "",
           m.properties?.hs_internal_meeting_notes || "",
@@ -309,9 +319,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       leadsDifference: recentLeads - priorLeads,
       numberOfLeads:   ownerContacts.length,
     }
-  }))
+  })
 
-  // 8. Team averages for indices
+  // 9. Team averages for indices
   const amounts    = rawList.map(c => c._amount).filter(a => a > 0)
   const meetCounts = rawList.map(c => c._meetings)
   const teamAvgAmt  = amounts.length    ? amounts.reduce((a, b) => a + b, 0)    / amounts.length    : 1
