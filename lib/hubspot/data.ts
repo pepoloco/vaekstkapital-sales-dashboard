@@ -50,7 +50,9 @@ function relWeek(ts: number, windowStart: number): number {
 }
 
 function classifyOutcome(raw: string): keyof MeetingOutcomes {
-  const v = raw.toUpperCase().trim()
+  // Normalise: upper-case and collapse spaces/dashes to underscores so we handle
+  // both HubSpot internal names ("DISQUALIFIED MEETING") and enum-style values ("DISQUALIFIED_MEETING")
+  const v = raw.toUpperCase().trim().replace(/[\s-]+/g, "_")
   if (v === "COMPLETED")                                      return "completed"
   if (v === "NO_SHOW")                                        return "noShow"
   if (v === "CANCELED" || v === "CANCELLED")                  return "cancelled"
