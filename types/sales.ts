@@ -30,6 +30,7 @@ export interface MeetingOutcomes {
 
 export interface Consultant {
   id: string
+  userId: string
   name: string
   meetingIndex: number
   salesIndex: number

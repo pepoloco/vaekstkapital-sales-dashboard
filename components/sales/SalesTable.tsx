@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react"
 import { Consultant, MeetingRef } from "@/types/sales"
 
-type SK = "name" | "meetingIndex" | "salesIndex" | "totalMeetings" | "totalAmount" | "totalCount" | "avgTicketSize" | "convDurationAvg" | "hitRate" | "leadsDifference" | "numberOfLeads"
+type SK = "name" | "meetingIndex" | "salesIndex" | "totalMeetings" | "leadsDifference" | "numberOfLeads"
 
 interface Props {
   consultants: Consultant[]
@@ -64,19 +64,16 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
           <thead>
             <tr>
               <th className="tg" colSpan={4}>Performance</th>
-              <th className="tg" colSpan={weekly ? 3 + 12 : 3}>Resultater (12 uger)</th>
+              {weekly && <th className="tg" colSpan={12}>Ugentlig aktivitet</th>}
               <th className="tg" colSpan={4}>Indsats (4 uger) · mål {KPI.physical*4}/{KPI.teams*4}/{KPI.dinner*4}/{KPI.webinar*4} ({KPI.physical}/{KPI.teams}/{KPI.dinner}/{KPI.webinar}/uge)</th>
               <th className="tg" colSpan={9}>Mødeudbytte (12 uger)</th>
-              <th className="tg" colSpan={4}>Metrics</th>
+              <th className="tg" colSpan={3}>Metrics</th>
             </tr>
             <tr>
               {th("Konsulent", "name")}
               {th("Møde IDX", "meetingIndex", true, "Relativt mødeindeks: (konsulentens møder / teamgennemsnit) × 100. 100 = gennemsnit. Klik for at sortere.")}
               {th("Salgs IDX", "salesIndex", true, "Relativt salgsindeks: (konsulentens salgsbeløb / teamgennemsnit) × 100. 100 = gennemsnit. Klik for at sortere.")}
               {th("Møder", "totalMeetings", true, "Absolut antal møder booket i 12-ugers vinduet")}
-              {th("Beløb", "totalAmount", true)}
-              {th("Antal", "totalCount", true)}
-              {th("Ticket Str.", "avgTicketSize", true)}
               {weekly && Array.from({ length: 12 }, (_, i) => th(`U${i+1}`, undefined, true))}
               {th(`Fysisk ▸${KPI.physical*4}`, undefined, true)}
               {th(`Teams ▸${KPI.teams*4}`, undefined, true)}
@@ -91,8 +88,7 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
               {th("Inv. 6–9 mdr.", undefined, true)}
               {th("Ingen int.", undefined, true)}
               {th("Diskvalif.", undefined, true)}
-              {th("Konv.Var.", "convDurationAvg", true)}
-              {th("Hit Rate", "hitRate", true)}
+              {th("Conv. Rate", undefined, true, "Andel møder der endte i gennemført eller forventet investering")}
               {th("Kont. Δ", "leadsDifference", true)}
               {th("Kontakter", "numberOfLeads", true)}
             </tr>
@@ -122,9 +118,6 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
                   </td>
                   <td className="td c"><IBar v={c.salesIndex} /></td>
                   <td className="td mn c">{c.totalMeetings}</td>
-                  <td className="td mn r">€{c.totalAmount.toLocaleString("da-DK")}</td>
-                  <td className="td mn c">{c.totalCount}</td>
-                  <td className="td mn r">€{c.avgTicketSize.toLocaleString("da-DK")}</td>
                   {weekly && Array.from({ length: 12 }, (_, wi) => {
                     const w     = c.weeklyResults.find(r => r.week === wi + 1)
                     const t     = w ? w.physical + w.teams + w.dinner + w.webinar : 0
@@ -181,8 +174,12 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
                   </td>
                   {cell(o.noInterest,          om.noInterest,          "Ingen int.")}
                   {cell(o.disqualifiedMeeting, om.disqualifiedMeeting, "Diskvalif.")}
-                  <td className="td mn c">{c.convDurationAvg.toFixed(1)}m</td>
-                  <td className="td mn c">{(c.hitRate * 100).toFixed(1)}%</td>
+                  {(() => {
+                    const cr = c.totalMeetings > 0
+                      ? (c.outcomes.completed + c.outcomes.expectedWithin3 + c.outcomes.expectedWithin6) / c.totalMeetings * 100
+                      : 0
+                    return <td className={`td mn c ${cr >= 50 ? "gn" : cr >= 25 ? "am" : "rd"}`}>{cr.toFixed(1)}%</td>
+                  })()}
                   <td className={`td mn c ${c.leadsDifference >= 0 ? "gn" : "rd"}`}>{c.leadsDifference >= 0 ? "+" : ""}{c.leadsDifference}</td>
                   <td className="td mn c">{c.numberOfLeads.toLocaleString("da-DK")}</td>
                 </tr>

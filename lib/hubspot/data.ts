@@ -319,6 +319,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
     return {
       id: oid,
+      userId,
       name: `${owner.firstName} ${owner.lastName}`.trim(),
       _amount: Math.round(totalAmount), _meetings: meetings.length,
       trendPositive: trendPos, weeklyResults, totalAmount: Math.round(totalAmount),

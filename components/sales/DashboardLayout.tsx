@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import KpiCards from "./KpiCards"
 import SalesTable from "./SalesTable"
 import WeeklyBreakdownTable from "./WeeklyBreakdownTable"
+import FilteredMeetingsTable from "./FilteredMeetingsTable"
 import MeetingsModal from "./MeetingsModal"
 import { DashboardData, MeetingRef } from "@/types/sales"
 
@@ -119,6 +120,9 @@ export default function DashboardLayout() {
             </div>
             <div className="sec">
               <WeeklyBreakdownTable consultants={data.consultants} />
+            </div>
+            <div className="sec">
+              <FilteredMeetingsTable consultants={data.consultants} />
             </div>
           </>
         )}
