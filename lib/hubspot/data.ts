@@ -44,14 +44,19 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     (o: any) => activeIds.includes(String(o.id)) && o.firstName
   )
 
-  // 5. Contacts
-  const contacts = activeIds.length > 0
-    ? await fetchAll("/crm/v3/objects/contacts/search", {
-        filterGroups: [{ filters: [{ propertyName: "hubspot_owner_id", operator: "IN", values: activeIds }] }],
+  // 5. Contacts (requires crm.objects.contacts.read scope — degrade gracefully if missing)
+  let contacts: any[] = []
+  if (activeIds.length > 0) {
+    try {
+      contacts = await fetchAll("/crm/v3/objects/contacts/search", {
+        filterGroups: activeIds.map(id => ({
+          filters: [{ propertyName: "hubspot_owner_id", operator: "EQ", value: id }],
+        })),
         properties: ["hubspot_owner_id", "createdate"],
         limit: 200,
       })
-    : []
+    } catch { /* contacts scope not enabled — hit rate and leads will show 0 */ }
+  }
 
   // 6. Build per-consultant data
   const rawList = await Promise.all(activeOwners.map(async (owner: any) => {
