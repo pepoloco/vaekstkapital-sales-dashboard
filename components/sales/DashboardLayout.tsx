@@ -3,14 +3,14 @@ import { useState, useEffect } from "react"
 import KpiCards from "./KpiCards"
 import SalesTable from "./SalesTable"
 import MeetingsModal from "./MeetingsModal"
-import { DashboardData } from "@/types/sales"
+import { DashboardData, MeetingRef } from "@/types/sales"
 
 export default function DashboardLayout() {
   const [data, setData]       = useState<DashboardData | null>(null)
   const [error, setError]     = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
-  const [modal, setModal]     = useState<{ ids: string[]; label: string } | null>(null)
+  const [modal, setModal]     = useState<{ meetings: MeetingRef[]; label: string } | null>(null)
 
   async function loadData() {
     setLoading(true)
@@ -90,7 +90,7 @@ export default function DashboardLayout() {
                 consultants={data.consultants}
                 portalId={data.portalId}
                 hubDomain={data.hubDomain}
-                onOpenModal={(ids, label) => setModal({ ids, label })}
+                onOpenModal={(meetings, label) => setModal({ meetings, label })}
               />
             </div>
             <div className="sec">
@@ -98,7 +98,7 @@ export default function DashboardLayout() {
                 consultants={data.consultants}
                 portalId={data.portalId}
                 hubDomain={data.hubDomain}
-                onOpenModal={(ids, label) => setModal({ ids, label })}
+                onOpenModal={(meetings, label) => setModal({ meetings, label })}
               />
             </div>
           </>
@@ -106,7 +106,7 @@ export default function DashboardLayout() {
       </main>
       {modal && data && (
         <MeetingsModal
-          ids={modal.ids}
+          meetings={modal.meetings}
           label={modal.label}
           portalId={data.portalId}
           hubDomain={data.hubDomain}

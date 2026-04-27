@@ -1,6 +1,6 @@
 import { hsGet, fetchAll } from "./client"
 import { calcMeetingIndex, calcSalesIndex, classifyMeeting } from "./metrics"
-import { Consultant, DashboardData, MeetingOutcomes, WeeklyResult } from "@/types/sales"
+import { Consultant, DashboardData, MeetingOutcomes, MeetingRef, WeeklyResult } from "@/types/sales"
 
 const TEAM_PATTERNS = [
   "team denmark",
@@ -62,13 +62,22 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const win      = w12Start.getTime()
 
   // 0. Portal info (for deep links)
-  let portalId  = ""
-  let hubDomain = "app-eu1.hubspot.com"
-  try {
-    const me = await hsGet("/integrations/v1/me")
-    portalId  = String(me.portalId ?? "")
-    hubDomain = me.uiDomain ?? "app-eu1.hubspot.com"
-  } catch { /* non-critical */ }
+  // HUBSPOT_PORTAL_ID env var is the most reliable — set it in Vercel if API fetch fails
+  let portalId  = process.env.HUBSPOT_PORTAL_ID ?? ""
+  let hubDomain = process.env.HUBSPOT_HUB_DOMAIN ?? "app-eu1.hubspot.com"
+  if (!portalId) {
+    try {
+      const me = await hsGet("/integrations/v1/me")
+      portalId  = String(me.portalId ?? "")
+      hubDomain = me.uiDomain ?? hubDomain
+    } catch {
+      try {
+        // Alternative endpoint for portal ID
+        const info = await hsGet("/account-info/v3/details")
+        portalId  = String(info.portalId ?? "")
+      } catch { /* non-critical */ }
+    }
+  }
 
   // 1. Owners
   const ownersData = await hsGet("/crm/v3/owners?limit=100")
@@ -184,22 +193,27 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
     const wMap: Record<number, WeeklyResult> = {}
     for (let w = 1; w <= 12; w++) {
-      wMap[w] = { week: w, physical: 0, teams: 0, dinner: 0, webinar: 0, amount: 0, count: 0, meetingIds: [] }
+      wMap[w] = { week: w, physical: 0, teams: 0, dinner: 0, webinar: 0, amount: 0, count: 0, meetings: [] }
     }
 
     const outcomes: MeetingOutcomes = {
       scheduled: 0, completed: 0, rescheduled: 0, noShow: 0, cancelled: 0,
       expectedWithin3: 0, expectedWithin6: 0, noInterest: 0, disqualifiedMeeting: 0,
     }
-    const outcomeIds: Record<keyof MeetingOutcomes, string[]> = {
+    const outcomeMeetings: Record<keyof MeetingOutcomes, MeetingRef[]> = {
       scheduled: [], completed: [], rescheduled: [], noShow: [], cancelled: [],
       expectedWithin3: [], expectedWithin6: [], noInterest: [], disqualifiedMeeting: [],
     }
 
     meetings.forEach((m: any) => {
-      const t = m.properties?.hs_meeting_start_time
-      if (t) {
-        const ts   = parseInt(t)
+      const rawTime = m.properties?.hs_meeting_start_time
+      const ts      = rawTime ? parseInt(rawTime) : 0
+      const ref: MeetingRef = {
+        id:        String(m.id),
+        title:     (m.properties?.hs_meeting_title || "").trim() || "Møde",
+        startTime: ts,
+      }
+      if (ts) {
         const wIdx = relWeek(ts, win)
         const type = classifyMeeting(
           m.properties?.hs_meeting_title          || "",
@@ -207,11 +221,11 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           m.properties?.hs_meeting_type           || "",
         )
         wMap[wIdx][type]++
-        if (m.id) wMap[wIdx].meetingIds.push(String(m.id))
+        if (m.id) wMap[wIdx].meetings.push(ref)
       }
       const outcomeKey = classifyOutcome(m.properties?.hs_meeting_outcome || "")
       outcomes[outcomeKey]++
-      if (m.id) outcomeIds[outcomeKey].push(String(m.id))
+      if (m.id) outcomeMeetings[outcomeKey].push(ref)
     })
 
     const ownerDeals = deals12w.filter((d: any) => d.properties.hubspot_owner_id === oid)
@@ -259,7 +273,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       trendPositive: trendPos, weeklyResults, totalAmount: Math.round(totalAmount),
       totalMeetings: meetings.length,
       totalCount, avgTicketSize: totalCount > 0 ? Math.round(totalAmount / totalCount) : 0,
-      effort, outcomes, outcomeIds,
+      effort, outcomes, outcomeMeetings,
       convDurationAvg: totalCount > 0 ? parseFloat((totalDuration / totalCount).toFixed(1)) : 0,
       hitRate:         ownerContacts.length > 0 ? totalCount / ownerContacts.length : 0,
       leadsDifference: recentLeads - priorLeads,

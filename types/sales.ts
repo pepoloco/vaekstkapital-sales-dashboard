@@ -1,3 +1,9 @@
+export interface MeetingRef {
+  id: string
+  title: string
+  startTime: number  // epoch ms
+}
+
 export interface WeeklyResult {
   week: number
   physical: number
@@ -6,7 +12,7 @@ export interface WeeklyResult {
   webinar: number
   amount: number
   count: number
-  meetingIds: string[]
+  meetings: MeetingRef[]
 }
 
 export interface MeetingOutcomes {
@@ -34,7 +40,7 @@ export interface Consultant {
   weeklyResults: WeeklyResult[]
   effort: { physical: number; teams: number; dinner: number; webinar: number }
   outcomes: MeetingOutcomes
-  outcomeIds: Record<keyof MeetingOutcomes, string[]>
+  outcomeMeetings: Record<keyof MeetingOutcomes, MeetingRef[]>
   convDurationAvg: number
   hitRate: number
   leadsDifference: number

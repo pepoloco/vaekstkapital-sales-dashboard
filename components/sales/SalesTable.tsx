@@ -1,6 +1,6 @@
 "use client"
 import { useState, useMemo } from "react"
-import { Consultant } from "@/types/sales"
+import { Consultant, MeetingRef } from "@/types/sales"
 
 type SK = "name" | "meetingIndex" | "salesIndex" | "totalMeetings" | "totalAmount" | "totalCount" | "avgTicketSize" | "convDurationAvg" | "hitRate" | "leadsDifference" | "numberOfLeads"
 
@@ -8,7 +8,7 @@ interface Props {
   consultants: Consultant[]
   portalId: string
   hubDomain: string
-  onOpenModal: (ids: string[], label: string) => void
+  onOpenModal: (meetings: MeetingRef[], label: string) => void
 }
 
 const KPI = { physical: 5, teams: 3, dinner: 2, webinar: 15 }
@@ -101,14 +101,14 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
             {rows.length === 0 && <tr><td colSpan={99} className="empty">Ingen konsulenter fundet</td></tr>}
             {rows.map((c, i) => {
               const o     = c.outcomes
-              const oi    = c.outcomeIds
+              const om    = c.outcomeMeetings
               const total = Object.values(o).reduce((a, b) => a + b, 0)
               const pct   = (n: number) => (n > 0 && total > 0) ? <span className="pct"> {Math.round(n / total * 100)}%</span> : null
 
-              const cell = (n: number, ids: string[], name: string, cls = "") => (
+              const cell = (n: number, refs: MeetingRef[], name: string, cls = "") => (
                 <td
-                  className={`td mn c${cls ? " " + cls : ""}${ids.length > 0 ? " clickable-cell" : ""}`}
-                  onClick={ids.length > 0 ? () => onOpenModal(ids, `${c.name} — ${name}`) : undefined}
+                  className={`td mn c${cls ? " " + cls : ""}${refs.length > 0 ? " clickable-cell" : ""}`}
+                  onClick={refs.length > 0 ? () => onOpenModal(refs, `${c.name} — ${name}`) : undefined}
                 >
                   {n > 0 ? <>{n}{pct(n)}</> : <span className="dm">–</span>}
                 </td>
@@ -126,24 +126,24 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
                   <td className="td mn c">{c.totalCount}</td>
                   <td className="td mn r">€{c.avgTicketSize.toLocaleString("da-DK")}</td>
                   {weekly && Array.from({ length: 12 }, (_, wi) => {
-                    const w    = c.weeklyResults.find(r => r.week === wi + 1)
-                    const t    = w ? w.physical + w.teams + w.dinner + w.webinar : 0
-                    const ids  = w?.meetingIds ?? []
+                    const w     = c.weeklyResults.find(r => r.week === wi + 1)
+                    const t     = w ? w.physical + w.teams + w.dinner + w.webinar : 0
+                    const refs  = w?.meetings ?? []
                     const label = `${c.name} — Uge ${wi + 1}`
                     const badge = t > 0 ? <span className="wd">{t}</span> : <span className="dm">–</span>
                     return (
                       <td key={wi} className="td mn c">
-                        {ids.length === 1 ? (
+                        {refs.length === 1 ? (
                           <a
-                            href={`https://${hubDomain}/contacts/${portalId}/objects/0-47/${ids[0]}`}
+                            href={`https://${hubDomain}/contacts/${portalId}/record/0-47/${refs[0].id}`}
                             target="_blank" rel="noopener noreferrer"
                             className="wk-link"
-                            title={label}
+                            title={`${refs[0].title}`}
                           >{badge}</a>
-                        ) : ids.length > 1 ? (
+                        ) : refs.length > 1 ? (
                           <span
                             className="wk-link"
-                            onClick={() => onOpenModal(ids, label)}
+                            onClick={() => onOpenModal(refs, label)}
                             style={{ cursor: "pointer" }}
                           >{badge}</span>
                         ) : badge}
@@ -154,27 +154,27 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
                   <td className={`td mn c ${kpiClass(c.effort.teams, KPI.teams)}`}>{c.effort.teams}</td>
                   <td className={`td mn c ${kpiClass(c.effort.dinner, KPI.dinner)}`}>{c.effort.dinner}</td>
                   <td className={`td mn c ${kpiClass(c.effort.webinar, KPI.webinar)}`}>{c.effort.webinar}</td>
-                  {cell(o.scheduled,           oi.scheduled,           "Planlagt")}
-                  {cell(o.completed,           oi.completed,           "Gennemført",   "gn")}
-                  {cell(o.rescheduled,         oi.rescheduled,         "Genplaceret")}
-                  {cell(o.noShow,              oi.noShow,              "No Show",      "rd")}
-                  {cell(o.cancelled,           oi.cancelled,           "Aflyst",       "am")}
+                  {cell(o.scheduled,           om.scheduled,           "Planlagt")}
+                  {cell(o.completed,           om.completed,           "Gennemført",   "gn")}
+                  {cell(o.rescheduled,         om.rescheduled,         "Genplaceret")}
+                  {cell(o.noShow,              om.noShow,              "No Show",      "rd")}
+                  {cell(o.cancelled,           om.cancelled,           "Aflyst",       "am")}
                   <td
-                    className={`td mn c${oi.expectedWithin3.length > 0 ? " clickable-cell" : ""}`}
+                    className={`td mn c${om.expectedWithin3.length > 0 ? " clickable-cell" : ""}`}
                     style={{ color: o.expectedWithin3 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin3 > 0 ? 500 : undefined }}
-                    onClick={oi.expectedWithin3.length > 0 ? () => onOpenModal(oi.expectedWithin3, `${c.name} — Inv. 3 mdr.`) : undefined}
+                    onClick={om.expectedWithin3.length > 0 ? () => onOpenModal(om.expectedWithin3, `${c.name} — Inv. 3 mdr.`) : undefined}
                   >
                     {o.expectedWithin3 > 0 ? <>{o.expectedWithin3}{pct(o.expectedWithin3)}</> : <span className="dm">–</span>}
                   </td>
                   <td
-                    className={`td mn c${oi.expectedWithin6.length > 0 ? " clickable-cell" : ""}`}
+                    className={`td mn c${om.expectedWithin6.length > 0 ? " clickable-cell" : ""}`}
                     style={{ color: o.expectedWithin6 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin6 > 0 ? 500 : undefined }}
-                    onClick={oi.expectedWithin6.length > 0 ? () => onOpenModal(oi.expectedWithin6, `${c.name} — Inv. 6–9 mdr.`) : undefined}
+                    onClick={om.expectedWithin6.length > 0 ? () => onOpenModal(om.expectedWithin6, `${c.name} — Inv. 6–9 mdr.`) : undefined}
                   >
                     {o.expectedWithin6 > 0 ? <>{o.expectedWithin6}{pct(o.expectedWithin6)}</> : <span className="dm">–</span>}
                   </td>
-                  {cell(o.noInterest,          oi.noInterest,          "Ingen int.")}
-                  {cell(o.disqualifiedMeeting, oi.disqualifiedMeeting, "Diskvalif.")}
+                  {cell(o.noInterest,          om.noInterest,          "Ingen int.")}
+                  {cell(o.disqualifiedMeeting, om.disqualifiedMeeting, "Diskvalif.")}
                   <td className="td mn c">{c.convDurationAvg.toFixed(1)}m</td>
                   <td className="td mn c">{(c.hitRate * 100).toFixed(1)}%</td>
                   <td className={`td mn c ${c.leadsDifference >= 0 ? "gn" : "rd"}`}>{c.leadsDifference >= 0 ? "+" : ""}{c.leadsDifference}</td>
