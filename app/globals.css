@@ -162,6 +162,15 @@ html, body {
 
 .empty { text-align: center; padding: 48px; color: var(--muted); font-size: 13px; }
 
+.loading-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 0; gap: 16px; }
+.loading-txt  { font-size: 13px; color: var(--tx2); }
+.spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid var(--bdr); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--bdr2); border-radius: 3px; }
