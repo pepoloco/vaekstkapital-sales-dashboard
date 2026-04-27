@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react"
 import KpiCards from "./KpiCards"
 import SalesTable from "./SalesTable"
+import WeeklyBreakdownTable from "./WeeklyBreakdownTable"
 import MeetingsModal from "./MeetingsModal"
 import { DashboardData, MeetingRef } from "@/types/sales"
 
@@ -65,10 +66,17 @@ export default function DashboardLayout() {
     <div className="page">
       <header className="hdr">
         <div className="hl">
-          <div className="logo-mark">VK</div>
-          <span className="logo-name">Vaekstkapital</span>
+          <img
+            src="https://144061788.fs1.hubspotusercontent-eu1.net/hubfs/144061788/Logo_Vaekstkapital_dark@2x.png"
+            alt="Vaekstkapital"
+            className="hdr-logo"
+          />
         </div>
         <div className="hr">
+          <span className={`api-status ${error ? "api-err" : loading ? "api-loading" : "api-ok"}`}>
+            <span className="api-dot" />
+            {error ? "Fejl" : loading ? "Forbinder…" : "Forbundet"}
+          </span>
           {updStr && <span className="hdr-upd">Opdateret {updStr}</span>}
           <button className="hdr-sync" disabled={syncing} onClick={handleSync}>
             {syncing ? "Synkroniserer…" : "↺ Synkronisér"}
@@ -108,6 +116,9 @@ export default function DashboardLayout() {
                 hubDomain={data.hubDomain}
                 onOpenModal={(meetings, label) => setModal({ meetings, label })}
               />
+            </div>
+            <div className="sec">
+              <WeeklyBreakdownTable consultants={data.consultants} />
             </div>
           </>
         )}

@@ -65,7 +65,7 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
             <tr>
               <th className="tg" colSpan={4}>Performance</th>
               <th className="tg" colSpan={weekly ? 3 + 12 : 3}>Resultater (12 uger)</th>
-              <th className="tg" colSpan={4}>Indsats (4 uger) · mål {KPI.physical}/{KPI.teams}/{KPI.dinner}/{KPI.webinar}/uge</th>
+              <th className="tg" colSpan={4}>Indsats (4 uger) · mål {KPI.physical*4}/{KPI.teams*4}/{KPI.dinner*4}/{KPI.webinar*4} ({KPI.physical}/{KPI.teams}/{KPI.dinner}/{KPI.webinar}/uge)</th>
               <th className="tg" colSpan={9}>Mødeudbytte (12 uger)</th>
               <th className="tg" colSpan={4}>Metrics</th>
             </tr>
@@ -78,10 +78,10 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
               {th("Antal", "totalCount", true)}
               {th("Ticket Str.", "avgTicketSize", true)}
               {weekly && Array.from({ length: 12 }, (_, i) => th(`U${i+1}`, undefined, true))}
-              {th(`Fysisk ▸${KPI.physical}`, undefined, true)}
-              {th(`Teams ▸${KPI.teams}`, undefined, true)}
-              {th(`Middag ▸${KPI.dinner}`, undefined, true)}
-              {th(`Webinar ▸${KPI.webinar}`, undefined, true)}
+              {th(`Fysisk ▸${KPI.physical*4}`, undefined, true)}
+              {th(`Teams ▸${KPI.teams*4}`, undefined, true)}
+              {th(`Middag ▸${KPI.dinner*4}`, undefined, true)}
+              {th(`Webinar ▸${KPI.webinar*4}`, undefined, true)}
               {th("Planlagt", undefined, true)}
               {th("Gennemført", undefined, true)}
               {th("Genplaceret", undefined, true)}

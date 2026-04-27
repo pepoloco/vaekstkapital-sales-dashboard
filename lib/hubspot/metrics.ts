@@ -32,23 +32,32 @@ export function getWeekNumber(date: Date): number {
 export function classifyMeeting(
   title: string,
   notes: string,
-  meetingType?: string
+  activityType?: string
 ): "physical" | "teams" | "dinner" | "webinar" {
-  const mt = (meetingType || "").toLowerCase().replace(/[-_\s]/g, "")
-
-  if (mt)  {
-    if (mt.includes("webinar") || mt.includes("seminar"))                                   return "webinar"
-    if (mt.includes("dinner") || mt.includes("lunch") || mt.includes("investordinner"))     return "dinner"
-    if (mt.includes("inperson") || mt.includes("physical") || mt.includes("face"))          return "physical"
-    if (mt.includes("video") || mt.includes("teams") || mt.includes("online") ||
-        mt.includes("zoom") || mt.includes("meet") || mt.includes("virtual") ||
-        mt.includes("videocall") || mt.includes("call"))                                    return "teams"
+  // Exact match on hs_activity_type dropdown values (internal names from HubSpot)
+  switch (activityType?.trim()) {
+    case "In-Person meeting":  return "physical"
+    case "Online meeting":     return "teams"
+    case "Investor Dinner":    return "dinner"
+    case "Investor Tour":      return "dinner"
+    case "Webinar Attendee":   return "webinar"
   }
 
-  // Fall back to title / notes classification
+  // Fuzzy fallback for unmapped or legacy values
+  const mt = (activityType || "").toLowerCase().replace(/[-_\s]/g, "")
+  if (mt) {
+    if (mt.includes("webinar") || mt.includes("seminar"))                               return "webinar"
+    if (mt.includes("dinner") || mt.includes("lunch") || mt.includes("investordinner")) return "dinner"
+    if (mt.includes("inperson") || mt.includes("physical") || mt.includes("face"))     return "physical"
+    if (mt.includes("video") || mt.includes("teams") || mt.includes("online") ||
+        mt.includes("zoom") || mt.includes("meet") || mt.includes("virtual") ||
+        mt.includes("call"))                                                             return "teams"
+  }
+
+  // Title / notes fallback
   const t = (title + " " + notes).toLowerCase()
-  if (t.includes("dinner") || t.includes("lunch"))                                          return "dinner"
-  if (t.includes("webinar") || t.includes("seminar"))                                       return "webinar"
+  if (t.includes("dinner") || t.includes("lunch"))                                      return "dinner"
+  if (t.includes("webinar") || t.includes("seminar"))                                   return "webinar"
   if (t.includes("teams") || t.includes("zoom") || t.includes("video") || t.includes("online")) return "teams"
   return "physical"
 }

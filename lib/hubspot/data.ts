@@ -192,7 +192,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         "hs_meeting_start_time",
         "hs_createdate",
         "hs_internal_meeting_notes",
-        "hs_meeting_type",
+        "hs_activity_type",
         "hs_meeting_outcome",
         "hs_created_by_user_id",
       ],
@@ -267,7 +267,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         const type = classifyMeeting(
           m.properties?.hs_meeting_title          || "",
           m.properties?.hs_internal_meeting_notes || "",
-          m.properties?.hs_meeting_type           || "",
+          m.properties?.hs_activity_type           || "",
         )
         wMap[wIdx][type]++
         if (m.id) wMap[wIdx].meetings.push(ref)
