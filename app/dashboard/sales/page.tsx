@@ -1,4 +1,5 @@
 import SalesDashboardClient from "@/components/sales/SalesDashboardClient"
+import SyncButton from "@/components/sales/SyncButton"
 
 export default function Page() {
   return (
@@ -9,13 +10,13 @@ export default function Page() {
           <span className="logo-name">Vaekstkapital</span>
         </div>
         <div className="hr">
-          <a href="/dashboard/sales" className="hdr-sync">↺ Synkronisér</a>
+          <SyncButton />
         </div>
       </header>
       <main className="content">
         <div className="page-hd">
           <h1 className="ttl">Sales Activity</h1>
-          <p className="sub">Vaekstkapital Group — konsulentperformance, ekskl. testbrugere</p>
+          <p className="sub">Vaekstkapital Group — Team Denmark, ekskl. testbrugere</p>
         </div>
         <SalesDashboardClient />
       </main>

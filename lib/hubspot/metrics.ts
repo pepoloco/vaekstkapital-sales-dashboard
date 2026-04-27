@@ -29,10 +29,26 @@ export function getWeekNumber(date: Date): number {
   return 1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + ((w1.getDay() + 6) % 7)) / 7)
 }
 
-export function classifyMeeting(title: string, notes: string): "physical" | "teams" | "dinner" | "webinar" {
+export function classifyMeeting(
+  title: string,
+  notes: string,
+  meetingType?: string
+): "physical" | "teams" | "dinner" | "webinar" {
+  const mt = (meetingType || "").toLowerCase().replace(/[-_\s]/g, "")
+
+  if (mt)  {
+    if (mt.includes("webinar") || mt.includes("seminar"))                                   return "webinar"
+    if (mt.includes("dinner") || mt.includes("lunch") || mt.includes("investordinner"))     return "dinner"
+    if (mt.includes("inperson") || mt.includes("physical") || mt.includes("face"))          return "physical"
+    if (mt.includes("video") || mt.includes("teams") || mt.includes("online") ||
+        mt.includes("zoom") || mt.includes("meet") || mt.includes("virtual") ||
+        mt.includes("videocall") || mt.includes("call"))                                    return "teams"
+  }
+
+  // Fall back to title / notes classification
   const t = (title + " " + notes).toLowerCase()
-  if (t.includes("dinner") || t.includes("lunch"))                                              return "dinner"
-  if (t.includes("webinar") || t.includes("seminar"))                                           return "webinar"
+  if (t.includes("dinner") || t.includes("lunch"))                                          return "dinner"
+  if (t.includes("webinar") || t.includes("seminar"))                                       return "webinar"
   if (t.includes("teams") || t.includes("zoom") || t.includes("video") || t.includes("online")) return "teams"
   return "physical"
 }

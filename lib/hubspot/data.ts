@@ -14,6 +14,16 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const ownersData  = await hsGet("/crm/v3/owners?limit=100")
   const allOwners: any[] = ownersData.results ?? []
 
+  // Filter to Denmark team — fall back to all owners if no team data found
+  const denmarkOwners = allOwners.filter((o: any) =>
+    o.teams?.some((t: any) => {
+      const n = (t.name || "").toLowerCase()
+      return n.includes("denmark") || n.includes("danmark")
+    })
+  )
+  const denmarkIds = new Set(denmarkOwners.map((o: any) => String(o.id)))
+  const useDenmarkFilter = denmarkIds.size > 0
+
   // 2. Closed-won deals last 12 weeks
   const deals12w = await fetchAll("/crm/v3/objects/deals/search", {
     filterGroups: [{ filters: [
@@ -35,20 +45,26 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     limit: 200,
   })
 
-  // 4. Active owners
+  // 4. Active owners (had at least one deal in 12w, belong to Denmark team)
   const activeIds = [...new Set(
     deals12w.map((d: any) => d.properties.hubspot_owner_id).filter(Boolean)
   )] as string[]
 
-  const activeOwners = allOwners.filter(
-    (o: any) => activeIds.includes(String(o.id)) && o.firstName
-  )
+  const activeOwners = allOwners.filter((o: any) => {
+    const oid = String(o.id)
+    return activeIds.includes(oid) &&
+           o.firstName &&
+           (!useDenmarkFilter || denmarkIds.has(oid))
+  })
 
   // 5. Contacts — batched 3 owners per request (HubSpot filterGroups hard limit)
   let contacts: any[] = []
   if (activeIds.length > 0) {
+    const relevantIds = useDenmarkFilter
+      ? activeIds.filter(id => denmarkIds.has(id))
+      : activeIds
     const chunks: string[][] = []
-    for (let i = 0; i < activeIds.length; i += 3) chunks.push(activeIds.slice(i, i + 3))
+    for (let i = 0; i < relevantIds.length; i += 3) chunks.push(relevantIds.slice(i, i + 3))
     const settled = await Promise.allSettled(
       chunks.map(chunk =>
         fetchAll("/crm/v3/objects/contacts/search", {
@@ -65,7 +81,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const rawList = await Promise.all(activeOwners.map(async (owner: any) => {
     const oid = String(owner.id)
 
-    // Meetings
+    // Meetings — include hs_meeting_type for accurate classification
     let meetings: any[] = []
     try {
       meetings = await fetchAll("/crm/v3/objects/meetings/search", {
@@ -73,7 +89,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           { propertyName: "hubspot_owner_id",      operator: "EQ",  value: oid },
           { propertyName: "hs_meeting_start_time", operator: "GTE", value: w12Start.getTime().toString() },
         ]}],
-        properties: ["hs_meeting_title", "hs_meeting_start_time", "hs_internal_meeting_notes"],
+        properties: ["hs_meeting_title", "hs_meeting_start_time", "hs_internal_meeting_notes", "hs_meeting_type"],
         limit: 200,
       })
     } catch { /* meetings scope may not be enabled */ }
@@ -87,8 +103,12 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     meetings.forEach((m: any) => {
       const t = m.properties?.hs_meeting_start_time
       if (!t) return
-      const rel = Math.max(1, Math.min(12, getWeekNumber(new Date(parseInt(t))) - startWeek + 1))
-      const type = classifyMeeting(m.properties?.hs_meeting_title || "", m.properties?.hs_internal_meeting_notes || "")
+      const rel  = Math.max(1, Math.min(12, getWeekNumber(new Date(parseInt(t))) - startWeek + 1))
+      const type = classifyMeeting(
+        m.properties?.hs_meeting_title             || "",
+        m.properties?.hs_internal_meeting_notes    || "",
+        m.properties?.hs_meeting_type              || "",
+      )
       wMap[rel][type]++
     })
 
@@ -111,6 +131,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     const totalCount    = ownerDeals.length
     const weeklyResults = Object.values(wMap)
 
+    // Effort = last 4 weeks (W9–W12)
     const effort = weeklyResults.filter(w => w.week >= 9).reduce(
       (acc, w) => ({ physical: acc.physical + w.physical, teams: acc.teams + w.teams, dinner: acc.dinner + w.dinner, webinar: acc.webinar + w.webinar }),
       { physical: 0, teams: 0, dinner: 0, webinar: 0 }
@@ -125,8 +146,8 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       return d >= eightWeeksAgo && d < fourWeeksAgo
     }).length
 
-    const l4wDeals    = ownerDeals.filter((d: any) => new Date(d.properties.closedate) >= l4wStart).length
-    const trendPos    = l4wDeals > (priorDeals.length / 2)
+    const l4wDeals = ownerDeals.filter((d: any) => new Date(d.properties.closedate) >= l4wStart).length
+    const trendPos = l4wDeals > (priorDeals.length / 2)
 
     return {
       id: oid,
@@ -147,9 +168,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   }))
 
   // 7. Team averages for indices
-  const amounts   = rawList.map(c => c._amount).filter(a => a > 0)
+  const amounts    = rawList.map(c => c._amount).filter(a => a > 0)
   const meetCounts = rawList.map(c => c._meetings)
-  const teamAvgAmt  = amounts.length   ? amounts.reduce((a, b) => a + b, 0)   / amounts.length   : 1
+  const teamAvgAmt  = amounts.length    ? amounts.reduce((a, b) => a + b, 0)    / amounts.length    : 1
   const teamAvgMeet = meetCounts.length ? meetCounts.reduce((a, b) => a + b, 0) / meetCounts.length : 1
 
   const consultants: Consultant[] = rawList
