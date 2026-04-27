@@ -67,7 +67,7 @@ export default function DashboardLayout() {
       <header className="hdr">
         <div className="hl">
           <img
-            src="https://144061788.fs1.hubspotusercontent-eu1.net/hubfs/144061788/Logo_Vaekstkapital_dark@2x.png"
+            src="https://144061788.fs1.hubspotusercontent-eu1.net/hubfs/144061788/Logo_Vaekstkapital_white.png"
             alt="Vaekstkapital"
             className="hdr-logo"
           />
