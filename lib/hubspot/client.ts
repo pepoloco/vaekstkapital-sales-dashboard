@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const BASE = "https://api-eu1.hubspot.com"
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -48,28 +47,4 @@ export async function fetchAll(path: string, body: object): Promise<any[]> {
     after = page.paging?.next?.after
   } while (after)
   return results
-=======
-const BASE_URL = "https://api.hubapi.com";
-
-export async function hubspotFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    next: { revalidate: 3600 },
-  });
-
-  if (!res.ok) {
-    const error = await res.text();
-    throw new Error(`HubSpot API error ${res.status}: ${error}`);
-  }
-
-  return res.json();
->>>>>>> 835103a4fbf78d0a460bcadcfa47078be90cb42b
 }
