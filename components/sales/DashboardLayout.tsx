@@ -12,6 +12,11 @@ export default function DashboardLayout() {
   const [syncing, setSyncing] = useState(false)
   const [modal, setModal]     = useState<{ meetings: MeetingRef[]; label: string } | null>(null)
 
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" })
+    window.location.href = "/login"
+  }
+
   async function loadData() {
     setLoading(true)
     setError(null)
@@ -67,6 +72,9 @@ export default function DashboardLayout() {
           {updStr && <span className="hdr-upd">Opdateret {updStr}</span>}
           <button className="hdr-sync" disabled={syncing} onClick={handleSync}>
             {syncing ? "Synkroniserer…" : "↺ Synkronisér"}
+          </button>
+          <button className="hdr-logout" onClick={handleLogout} title="Log ud">
+            ⏻
           </button>
         </div>
       </header>
