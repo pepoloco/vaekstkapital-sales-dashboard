@@ -2,6 +2,7 @@ export interface MeetingRef {
   id: string
   title: string
   startTime: number  // epoch ms
+  url?: string       // hs_object_url from HubSpot
 }
 
 export interface WeeklyResult {

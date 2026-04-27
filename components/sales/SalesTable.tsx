@@ -135,10 +135,10 @@ export default function SalesTable({ consultants, portalId, hubDomain, onOpenMod
                       <td key={wi} className="td mn c">
                         {refs.length === 1 ? (
                           <a
-                            href={`https://${hubDomain}/contacts/${portalId}/record/0-47/${refs[0].id}`}
+                            href={refs[0].url || (portalId ? `https://${hubDomain}/contacts/${portalId}/record/0-47/${refs[0].id}` : "#")}
                             target="_blank" rel="noopener noreferrer"
                             className="wk-link"
-                            title={`${refs[0].title}`}
+                            title={refs[0].title}
                           >{badge}</a>
                         ) : refs.length > 1 ? (
                           <span

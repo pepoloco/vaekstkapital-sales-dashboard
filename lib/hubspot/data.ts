@@ -186,6 +186,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           "hs_internal_meeting_notes",
           "hs_meeting_type",
           "hs_meeting_outcome",
+          "hs_object_url",
         ],
         limit: 200,
       })
@@ -212,6 +213,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         id:        String(m.id),
         title:     (m.properties?.hs_meeting_title || "").trim() || "Møde",
         startTime: ts,
+        url:       m.properties?.hs_object_url || undefined,
       }
       if (ts) {
         const wIdx = relWeek(ts, win)

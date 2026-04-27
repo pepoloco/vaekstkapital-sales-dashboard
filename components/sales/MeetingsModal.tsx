@@ -35,9 +35,8 @@ export default function MeetingsModal({ meetings, label, portalId, hubDomain, on
         </div>
         <div className="modal-body">
           {sorted.map((ref, i) => {
-            const href = portalId
-              ? `https://${hubDomain}/contacts/${portalId}/record/0-47/${ref.id}`
-              : null
+            const href = ref.url
+              || (portalId ? `https://${hubDomain}/contacts/${portalId}/record/0-47/${ref.id}` : null)
             return href ? (
               <a
                 key={ref.id}
