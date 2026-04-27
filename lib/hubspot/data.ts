@@ -1,4 +1,4 @@
-import { hsGet, fetchAll } from "./client"
+import { hsGet, hsPost, fetchAll } from "./client"
 import { calcMeetingIndex, calcSalesIndex, classifyMeeting } from "./metrics"
 import { Consultant, DashboardData, MeetingOutcomes, MeetingRef, WeeklyResult } from "@/types/sales"
 
