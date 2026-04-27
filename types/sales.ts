@@ -1,8 +1,8 @@
 export interface MeetingRef {
   id: string
   title: string
-  startTime: number  // epoch ms
-  url?: string       // hs_object_url from HubSpot
+  startTime: number   // epoch ms
+  companyId?: string  // associated company record ID for deep link
 }
 
 export interface WeeklyResult {

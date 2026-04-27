@@ -186,11 +186,34 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           "hs_internal_meeting_notes",
           "hs_meeting_type",
           "hs_meeting_outcome",
-          "hs_object_url",
         ],
         limit: 200,
       })
     } catch { /* meetings scope may not be enabled */ }
+
+    // Batch-fetch company associations so we can build correct deep-link URLs
+    // URL format: /record/0-2/{companyId}/view/1?engagement={meetingId}
+    const meetingToCompany: Record<string, string> = {}
+    if (meetings.length > 0) {
+      try {
+        const inputs = meetings.map(m => ({ id: String(m.id) }))
+        // Batch associations API accepts max 100 per request
+        const chunks: typeof inputs[] = []
+        for (let i = 0; i < inputs.length; i += 100) chunks.push(inputs.slice(i, i + 100))
+        const results = await Promise.all(
+          chunks.map(chunk =>
+            hsPost("/crm/v3/associations/meetings/companies/batch/read", { inputs: chunk })
+              .catch(() => ({ results: [] }))
+          )
+        )
+        for (const res of results) {
+          for (const r of (res.results ?? [])) {
+            const toArr: any[] = r.to ?? []
+            if (toArr.length > 0) meetingToCompany[String(r.from.id)] = String(toArr[0].id)
+          }
+        }
+      } catch { /* non-critical */ }
+    }
 
     const wMap: Record<number, WeeklyResult> = {}
     for (let w = 1; w <= 12; w++) {
@@ -213,7 +236,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         id:        String(m.id),
         title:     (m.properties?.hs_meeting_title || "").trim() || "Møde",
         startTime: ts,
-        url:       m.properties?.hs_object_url || undefined,
+        companyId: meetingToCompany[String(m.id)],
       }
       if (ts) {
         const wIdx = relWeek(ts, win)

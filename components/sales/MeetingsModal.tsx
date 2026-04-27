@@ -35,8 +35,11 @@ export default function MeetingsModal({ meetings, label, portalId, hubDomain, on
         </div>
         <div className="modal-body">
           {sorted.map((ref, i) => {
-            const href = ref.url
-              || (portalId ? `https://${hubDomain}/contacts/${portalId}/record/0-47/${ref.id}` : null)
+            const href = ref.companyId && portalId
+              ? `https://${hubDomain}/contacts/${portalId}/record/0-2/${ref.companyId}/view/1?engagement=${ref.id}`
+              : portalId
+                ? `https://${hubDomain}/contacts/${portalId}/objects/0-47/views/all/list`
+                : null
             return href ? (
               <a
                 key={ref.id}
@@ -67,7 +70,7 @@ export default function MeetingsModal({ meetings, label, portalId, hubDomain, on
           )}
         </div>
         {!portalId && (
-          <p className="modal-warn">Sæt HUBSPOT_PORTAL_ID i Vercel env vars for at aktivere direkte links.</p>
+          <p className="modal-warn">Sæt HUBSPOT_PORTAL_ID i Vercel for at aktivere direkte links.</p>
         )}
       </div>
     </div>
