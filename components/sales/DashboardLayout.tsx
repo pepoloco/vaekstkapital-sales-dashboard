@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react"
 import KpiCards from "./KpiCards"
 import SalesTable from "./SalesTable"
+import MeetingsModal from "./MeetingsModal"
 import { DashboardData } from "@/types/sales"
 
 export default function DashboardLayout() {
@@ -9,6 +10,7 @@ export default function DashboardLayout() {
   const [error, setError]     = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [modal, setModal]     = useState<{ ids: string[]; label: string } | null>(null)
 
   async function loadData() {
     setLoading(true)
@@ -83,11 +85,34 @@ export default function DashboardLayout() {
         {!loading && error && <div className="err">⚠ HubSpot fejl: {error}</div>}
         {!loading && !error && data && (
           <>
-            <div className="sec"><KpiCards consultants={data.consultants} portalId={data.portalId} hubDomain={data.hubDomain} /></div>
-            <div className="sec"><SalesTable consultants={data.consultants} portalId={data.portalId} hubDomain={data.hubDomain} /></div>
+            <div className="sec">
+              <KpiCards
+                consultants={data.consultants}
+                portalId={data.portalId}
+                hubDomain={data.hubDomain}
+                onOpenModal={(ids, label) => setModal({ ids, label })}
+              />
+            </div>
+            <div className="sec">
+              <SalesTable
+                consultants={data.consultants}
+                portalId={data.portalId}
+                hubDomain={data.hubDomain}
+                onOpenModal={(ids, label) => setModal({ ids, label })}
+              />
+            </div>
           </>
         )}
       </main>
+      {modal && data && (
+        <MeetingsModal
+          ids={modal.ids}
+          label={modal.label}
+          portalId={data.portalId}
+          hubDomain={data.hubDomain}
+          onClose={() => setModal(null)}
+        />
+      )}
     </div>
   )
 }

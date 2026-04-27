@@ -22,6 +22,7 @@ const BLOCKED_NAMES = new Set([
   "mathias bro jensen",
   "jan hansen",
   "jan erik dahl hansen",
+  "line busk",
   "dk sales inbox",
 ])
 
@@ -190,6 +191,10 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       scheduled: 0, completed: 0, rescheduled: 0, noShow: 0, cancelled: 0,
       expectedWithin3: 0, expectedWithin6: 0, noInterest: 0, disqualifiedMeeting: 0,
     }
+    const outcomeIds: Record<keyof MeetingOutcomes, string[]> = {
+      scheduled: [], completed: [], rescheduled: [], noShow: [], cancelled: [],
+      expectedWithin3: [], expectedWithin6: [], noInterest: [], disqualifiedMeeting: [],
+    }
 
     meetings.forEach((m: any) => {
       const t = m.properties?.hs_meeting_start_time
@@ -204,7 +209,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         wMap[wIdx][type]++
         if (m.id) wMap[wIdx].meetingIds.push(String(m.id))
       }
-      outcomes[classifyOutcome(m.properties?.hs_meeting_outcome || "")]++
+      const outcomeKey = classifyOutcome(m.properties?.hs_meeting_outcome || "")
+      outcomes[outcomeKey]++
+      if (m.id) outcomeIds[outcomeKey].push(String(m.id))
     })
 
     const ownerDeals = deals12w.filter((d: any) => d.properties.hubspot_owner_id === oid)
@@ -250,8 +257,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       name: `${owner.firstName} ${owner.lastName}`.trim(),
       _amount: Math.round(totalAmount), _meetings: meetings.length,
       trendPositive: trendPos, weeklyResults, totalAmount: Math.round(totalAmount),
+      totalMeetings: meetings.length,
       totalCount, avgTicketSize: totalCount > 0 ? Math.round(totalAmount / totalCount) : 0,
-      effort, outcomes,
+      effort, outcomes, outcomeIds,
       convDurationAvg: totalCount > 0 ? parseFloat((totalDuration / totalCount).toFixed(1)) : 0,
       hitRate:         ownerContacts.length > 0 ? totalCount / ownerContacts.length : 0,
       leadsDifference: recentLeads - priorLeads,

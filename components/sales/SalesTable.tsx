@@ -2,12 +2,13 @@
 import { useState, useMemo } from "react"
 import { Consultant } from "@/types/sales"
 
-type SK = "name" | "meetingIndex" | "salesIndex" | "totalAmount" | "totalCount" | "avgTicketSize" | "convDurationAvg" | "hitRate" | "leadsDifference" | "numberOfLeads"
+type SK = "name" | "meetingIndex" | "salesIndex" | "totalMeetings" | "totalAmount" | "totalCount" | "avgTicketSize" | "convDurationAvg" | "hitRate" | "leadsDifference" | "numberOfLeads"
 
 interface Props {
   consultants: Consultant[]
   portalId: string
   hubDomain: string
+  onOpenModal: (ids: string[], label: string) => void
 }
 
 const KPI = { physical: 5, teams: 3, dinner: 2, webinar: 15 }
@@ -19,7 +20,7 @@ function kpiClass(actual: number, weeklyTarget: number): string {
   return "rd"
 }
 
-export default function SalesTable({ consultants, portalId, hubDomain }: Props) {
+export default function SalesTable({ consultants, portalId, hubDomain, onOpenModal }: Props) {
   const [sk, setSk]         = useState<SK>("meetingIndex")
   const [dir, setDir]       = useState<"asc"|"desc">("desc")
   const [weekly, setWeekly] = useState(false)
@@ -39,8 +40,9 @@ export default function SalesTable({ consultants, portalId, hubDomain }: Props) 
     [consultants, sk, dir, q]
   )
 
-  const th = (label: string, k?: SK, center?: boolean) => (
+  const th = (label: string, k?: SK, center?: boolean, title?: string) => (
     <th key={label} className={`th${k ? " sort" : ""}${center ? " c" : ""}`}
+        title={title}
         onClick={() => { if (!k) return; if (sk === k) setDir(d => d === "desc" ? "asc" : "desc"); else { setSk(k); setDir("desc") } }}>
       {label}{k && sk === k ? (dir === "desc" ? " ↓" : " ↑") : ""}
     </th>
@@ -61,7 +63,7 @@ export default function SalesTable({ consultants, portalId, hubDomain }: Props) 
         <table className="tbl">
           <thead>
             <tr>
-              <th className="tg" colSpan={3}>Performance</th>
+              <th className="tg" colSpan={4}>Performance</th>
               <th className="tg" colSpan={weekly ? 3 + 12 : 3}>Resultater (12 uger)</th>
               <th className="tg" colSpan={4}>Indsats (4 uger) · mål {KPI.physical}/{KPI.teams}/{KPI.dinner}/{KPI.webinar}/uge</th>
               <th className="tg" colSpan={9}>Mødeudbytte (12 uger)</th>
@@ -69,8 +71,9 @@ export default function SalesTable({ consultants, portalId, hubDomain }: Props) 
             </tr>
             <tr>
               {th("Konsulent", "name")}
-              {th("Møde Idx", "meetingIndex", true)}
-              {th("Salgs Idx", "salesIndex", true)}
+              {th("Møde IDX", "meetingIndex", true, "Relativt mødeindeks: (konsulentens møder / teamgennemsnit) × 100. 100 = gennemsnit. Klik for at sortere.")}
+              {th("Salgs IDX", "salesIndex", true, "Relativt salgsindeks: (konsulentens salgsbeløb / teamgennemsnit) × 100. 100 = gennemsnit. Klik for at sortere.")}
+              {th("Møder", "totalMeetings", true, "Absolut antal møder booket i 12-ugers vinduet")}
               {th("Beløb", "totalAmount", true)}
               {th("Antal", "totalCount", true)}
               {th("Ticket Str.", "avgTicketSize", true)}
@@ -97,37 +100,53 @@ export default function SalesTable({ consultants, portalId, hubDomain }: Props) 
           <tbody>
             {rows.length === 0 && <tr><td colSpan={99} className="empty">Ingen konsulenter fundet</td></tr>}
             {rows.map((c, i) => {
-              const o = c.outcomes
+              const o     = c.outcomes
+              const oi    = c.outcomeIds
               const total = Object.values(o).reduce((a, b) => a + b, 0)
-              const pct = (n: number) => (n > 0 && total > 0) ? <span className="pct"> {Math.round(n / total * 100)}%</span> : null
-              const cell = (n: number, cls = "") => (
-                <td className={`td mn c${cls ? " " + cls : ""}`}>
+              const pct   = (n: number) => (n > 0 && total > 0) ? <span className="pct"> {Math.round(n / total * 100)}%</span> : null
+
+              const cell = (n: number, ids: string[], name: string, cls = "") => (
+                <td
+                  className={`td mn c${cls ? " " + cls : ""}${ids.length > 0 ? " clickable-cell" : ""}`}
+                  onClick={ids.length > 0 ? () => onOpenModal(ids, `${c.name} — ${name}`) : undefined}
+                >
                   {n > 0 ? <>{n}{pct(n)}</> : <span className="dm">–</span>}
                 </td>
               )
+
               return (
                 <tr key={c.id} className={`row${i % 2 === 0 ? " even" : ""}`}>
                   <td className="td nm">{c.name}</td>
-                  <td className="td c"><IBar v={c.meetingIndex} /></td>
+                  <td className="td c" title={`${c.totalMeetings} møder / teamgennemsnit = ${c.meetingIndex}`}>
+                    <IBar v={c.meetingIndex} sub={c.totalMeetings} />
+                  </td>
                   <td className="td c"><IBar v={c.salesIndex} /></td>
+                  <td className="td mn c">{c.totalMeetings}</td>
                   <td className="td mn r">€{c.totalAmount.toLocaleString("da-DK")}</td>
                   <td className="td mn c">{c.totalCount}</td>
                   <td className="td mn r">€{c.avgTicketSize.toLocaleString("da-DK")}</td>
-                  {weekly && Array.from({ length: 12 }, (_, i) => {
-                    const w = c.weeklyResults.find(r => r.week === i + 1)
-                    const t = w ? w.physical + w.teams + w.dinner + w.webinar : 0
-                    const ids = w?.meetingIds ?? []
-                    const href = ids.length > 0 && portalId
-                      ? ids.length === 1
-                        ? `https://${hubDomain}/contacts/${portalId}/objects/0-47/${ids[0]}`
-                        : `https://${hubDomain}/contacts/${portalId}/objects/0-47`
-                      : null
+                  {weekly && Array.from({ length: 12 }, (_, wi) => {
+                    const w    = c.weeklyResults.find(r => r.week === wi + 1)
+                    const t    = w ? w.physical + w.teams + w.dinner + w.webinar : 0
+                    const ids  = w?.meetingIds ?? []
+                    const label = `${c.name} — Uge ${wi + 1}`
                     const badge = t > 0 ? <span className="wd">{t}</span> : <span className="dm">–</span>
                     return (
-                      <td key={i} className="td mn c">
-                        {href
-                          ? <a href={href} target="_blank" rel="noopener noreferrer" className="wk-link" title={`${t} møde${t !== 1 ? "r" : ""} uge ${i+1}`}>{badge}</a>
-                          : badge}
+                      <td key={wi} className="td mn c">
+                        {ids.length === 1 ? (
+                          <a
+                            href={`https://${hubDomain}/contacts/${portalId}/objects/0-47/${ids[0]}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="wk-link"
+                            title={label}
+                          >{badge}</a>
+                        ) : ids.length > 1 ? (
+                          <span
+                            className="wk-link"
+                            onClick={() => onOpenModal(ids, label)}
+                            style={{ cursor: "pointer" }}
+                          >{badge}</span>
+                        ) : badge}
                       </td>
                     )
                   })}
@@ -135,19 +154,27 @@ export default function SalesTable({ consultants, portalId, hubDomain }: Props) 
                   <td className={`td mn c ${kpiClass(c.effort.teams, KPI.teams)}`}>{c.effort.teams}</td>
                   <td className={`td mn c ${kpiClass(c.effort.dinner, KPI.dinner)}`}>{c.effort.dinner}</td>
                   <td className={`td mn c ${kpiClass(c.effort.webinar, KPI.webinar)}`}>{c.effort.webinar}</td>
-                  {cell(o.scheduled)}
-                  {cell(o.completed, "gn")}
-                  {cell(o.rescheduled)}
-                  {cell(o.noShow, "rd")}
-                  {cell(o.cancelled, "am")}
-                  <td className="td mn c" style={{ color: o.expectedWithin3 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin3 > 0 ? 500 : undefined }}>
+                  {cell(o.scheduled,           oi.scheduled,           "Planlagt")}
+                  {cell(o.completed,           oi.completed,           "Gennemført",   "gn")}
+                  {cell(o.rescheduled,         oi.rescheduled,         "Genplaceret")}
+                  {cell(o.noShow,              oi.noShow,              "No Show",      "rd")}
+                  {cell(o.cancelled,           oi.cancelled,           "Aflyst",       "am")}
+                  <td
+                    className={`td mn c${oi.expectedWithin3.length > 0 ? " clickable-cell" : ""}`}
+                    style={{ color: o.expectedWithin3 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin3 > 0 ? 500 : undefined }}
+                    onClick={oi.expectedWithin3.length > 0 ? () => onOpenModal(oi.expectedWithin3, `${c.name} — Inv. 3 mdr.`) : undefined}
+                  >
                     {o.expectedWithin3 > 0 ? <>{o.expectedWithin3}{pct(o.expectedWithin3)}</> : <span className="dm">–</span>}
                   </td>
-                  <td className="td mn c" style={{ color: o.expectedWithin6 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin6 > 0 ? 500 : undefined }}>
+                  <td
+                    className={`td mn c${oi.expectedWithin6.length > 0 ? " clickable-cell" : ""}`}
+                    style={{ color: o.expectedWithin6 > 0 ? "#0ea5e9" : undefined, fontWeight: o.expectedWithin6 > 0 ? 500 : undefined }}
+                    onClick={oi.expectedWithin6.length > 0 ? () => onOpenModal(oi.expectedWithin6, `${c.name} — Inv. 6–9 mdr.`) : undefined}
+                  >
                     {o.expectedWithin6 > 0 ? <>{o.expectedWithin6}{pct(o.expectedWithin6)}</> : <span className="dm">–</span>}
                   </td>
-                  {cell(o.noInterest)}
-                  {cell(o.disqualifiedMeeting)}
+                  {cell(o.noInterest,          oi.noInterest,          "Ingen int.")}
+                  {cell(o.disqualifiedMeeting, oi.disqualifiedMeeting, "Diskvalif.")}
                   <td className="td mn c">{c.convDurationAvg.toFixed(1)}m</td>
                   <td className="td mn c">{(c.hitRate * 100).toFixed(1)}%</td>
                   <td className={`td mn c ${c.leadsDifference >= 0 ? "gn" : "rd"}`}>{c.leadsDifference >= 0 ? "+" : ""}{c.leadsDifference}</td>
@@ -162,13 +189,14 @@ export default function SalesTable({ consultants, portalId, hubDomain }: Props) 
   )
 }
 
-function IBar({ v }: { v: number }) {
+function IBar({ v, sub }: { v: number; sub?: number }) {
   const p  = Math.min(v / 200, 1)
   const bg = p >= 0.75 ? "#059669" : p >= 0.45 ? "#d97706" : "#dc2626"
   return (
     <div className="ib">
       <span className="iv">{v}</span>
       <div className="it"><div className="if" style={{ width: `${p * 100}%`, background: bg }} /></div>
+      {sub !== undefined && <span style={{ fontSize: 10, color: "var(--muted)", minWidth: 24 }}>{sub}</span>}
     </div>
   )
 }

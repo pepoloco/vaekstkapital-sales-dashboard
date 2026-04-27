@@ -26,6 +26,7 @@ export interface Consultant {
   name: string
   meetingIndex: number
   salesIndex: number
+  totalMeetings: number
   trendPositive: boolean
   totalAmount: number
   totalCount: number
@@ -33,6 +34,7 @@ export interface Consultant {
   weeklyResults: WeeklyResult[]
   effort: { physical: number; teams: number; dinner: number; webinar: number }
   outcomes: MeetingOutcomes
+  outcomeIds: Record<keyof MeetingOutcomes, string[]>
   convDurationAvg: number
   hitRate: number
   leadsDifference: number
