@@ -9,10 +9,13 @@ export interface WeeklyResult {
 }
 
 export interface MeetingOutcomes {
-  completed:  number
-  noShow:     number
-  cancelled:  number
-  scheduled:  number  // booked but no outcome yet (future/pending)
+  scheduled:    number  // SCHEDULED
+  completed:    number  // COMPLETED
+  rescheduled:  number  // RESCHEDULED
+  noShow:       number  // NO_SHOW
+  cancelled:    number  // CANCELED
+  qualified:    number  // EXPECTED_INVESTMENT_WITHIN_3 / WITHIN_6
+  disqualified: number  // THE_CUSTOMER_HAS_NO_INTEREST / DISQUALIFIED_MEETING
 }
 
 export interface Consultant {

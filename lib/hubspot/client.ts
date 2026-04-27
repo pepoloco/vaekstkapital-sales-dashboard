@@ -1,8 +1,7 @@
-const BASE = "https://api-eu1.hubspot.com"
+const BASE  = "https://api-eu1.hubspot.com"
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 export async function hsGet(path: string, attempt = 0): Promise<any> {
-  await sleep(100)
   const res = await fetch(`${BASE}${path}`, {
     headers: {
       Authorization: `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN}`,
@@ -11,7 +10,7 @@ export async function hsGet(path: string, attempt = 0): Promise<any> {
     cache: "no-store",
   })
   if (res.status === 429 && attempt < 4) {
-    await sleep(2000 * (attempt + 1))
+    await sleep(1500 * (attempt + 1))
     return hsGet(path, attempt + 1)
   }
   if (!res.ok) throw new Error(`HubSpot GET ${path} → ${res.status}`)
@@ -19,7 +18,6 @@ export async function hsGet(path: string, attempt = 0): Promise<any> {
 }
 
 export async function hsPost(path: string, body: object, attempt = 0): Promise<any> {
-  await sleep(100)
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: {
@@ -31,7 +29,7 @@ export async function hsPost(path: string, body: object, attempt = 0): Promise<a
     cache: "no-store",
   })
   if (res.status === 429 && attempt < 4) {
-    await sleep(2000 * (attempt + 1))
+    await sleep(1500 * (attempt + 1))
     return hsPost(path, body, attempt + 1)
   }
   if (!res.ok) throw new Error(`HubSpot POST ${path} → ${res.status}: ${await res.text()}`)

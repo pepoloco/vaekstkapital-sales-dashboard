@@ -22,11 +22,15 @@ function relWeek(ts: number, windowStart: number): number {
 }
 
 function classifyOutcome(raw: string): keyof MeetingOutcomes {
-  const v = raw.toUpperCase()
-  if (v === "COMPLETED")                        return "completed"
-  if (v === "NO_SHOW")                          return "noShow"
-  if (v === "CANCELED" || v === "CANCELLED")    return "cancelled"
-  return "scheduled"
+  const v = raw.toUpperCase().trim()
+  if (v === "COMPLETED")                              return "completed"
+  if (v === "NO_SHOW")                                return "noShow"
+  if (v === "CANCELED" || v === "CANCELLED")          return "cancelled"
+  if (v === "RESCHEDULED")                            return "rescheduled"
+  if (v.startsWith("EXPECTED_INVESTMENT"))            return "qualified"
+  if (v.startsWith("THE_CUSTOMER_HAS_NO") ||
+      v === "DISQUALIFIED_MEETING")                   return "disqualified"
+  return "scheduled"   // SCHEDULED or blank
 }
 
 export async function fetchDashboardData(): Promise<DashboardData> {
@@ -128,7 +132,10 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       wMap[w] = { week: w, physical: 0, teams: 0, dinner: 0, webinar: 0, amount: 0, count: 0 }
     }
 
-    const outcomes: MeetingOutcomes = { completed: 0, noShow: 0, cancelled: 0, scheduled: 0 }
+    const outcomes: MeetingOutcomes = {
+      scheduled: 0, completed: 0, rescheduled: 0,
+      noShow: 0, cancelled: 0, qualified: 0, disqualified: 0,
+    }
 
     meetings.forEach((m: any) => {
       const t = m.properties?.hs_meeting_start_time

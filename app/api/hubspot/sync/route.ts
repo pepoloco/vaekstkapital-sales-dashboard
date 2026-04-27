@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
 import { getCachedDashboardData } from "@/lib/hubspot/cache"
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 export async function GET() {
   try {

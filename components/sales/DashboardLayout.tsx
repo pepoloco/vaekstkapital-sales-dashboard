@@ -14,8 +14,17 @@ export default function DashboardLayout() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/hubspot/sales")
-      const d   = await res.json()
+      const res  = await fetch("/api/hubspot/sales")
+      const text = await res.text()
+      if (!res.ok) {
+        setError(`Server fejl ${res.status} — prøv at klikke Synkronisér`)
+        return
+      }
+      let d: any
+      try { d = JSON.parse(text) } catch {
+        setError("Uventet svar fra serveren — prøv at klikke Synkronisér")
+        return
+      }
       if (d.error) setError(d.error)
       else setData(d)
     } catch (e: any) {
