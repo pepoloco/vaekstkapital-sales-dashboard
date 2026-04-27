@@ -8,13 +8,20 @@ const KPI = { physical: 5, teams: 3, dinner: 2, webinar: 15 }
 
 function kpiClass(actual: number, weeklyTarget: number): string {
   const target = weeklyTarget * 4
-  if (actual >= target)          return "gn"
-  if (actual >= target * 0.5)    return "am"
+  if (actual >= target)        return "gn"
+  if (actual >= target * 0.5)  return "am"
   return "rd"
 }
 
+function outcomeClass(label: string): string {
+  if (label === "completed") return "gn"
+  if (label === "noShow")    return "rd"
+  if (label === "cancelled") return "am"
+  return ""
+}
+
 export default function SalesTable({ consultants }: { consultants: Consultant[] }) {
-  const [sk, setSk]         = useState<SK>("salesIndex")
+  const [sk, setSk]         = useState<SK>("meetingIndex")
   const [dir, setDir]       = useState<"asc"|"desc">("desc")
   const [weekly, setWeekly] = useState(false)
   const [q, setQ]           = useState("")
@@ -56,16 +63,16 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
         <table className="tbl">
           <thead>
             <tr>
-              <th className="tg" colSpan={4}>Performance</th>
+              <th className="tg" colSpan={3}>Performance</th>
               <th className="tg" colSpan={weekly ? 3 + 12 : 3}>Resultater (12 uger)</th>
               <th className="tg" colSpan={4}>Indsats (4 uger) · mål {KPI.physical}/{KPI.teams}/{KPI.dinner}/{KPI.webinar}/uge</th>
+              <th className="tg" colSpan={3}>Mødeudbytte (12 uger)</th>
               <th className="tg" colSpan={4}>Metrics</th>
             </tr>
             <tr>
               {th("Konsulent", "name")}
               {th("Møde Idx", "meetingIndex", true)}
               {th("Salgs Idx", "salesIndex", true)}
-              {th("Trend", undefined, true)}
               {th("Beløb", "totalAmount", true)}
               {th("Antal", "totalCount", true)}
               {th("Ticket Str.", "avgTicketSize", true)}
@@ -74,6 +81,9 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
               {th(`Teams ▸${KPI.teams}`, undefined, true)}
               {th(`Middag ▸${KPI.dinner}`, undefined, true)}
               {th(`Webinar ▸${KPI.webinar}`, undefined, true)}
+              {th("Gennemført", undefined, true)}
+              {th("No Show", undefined, true)}
+              {th("Aflyst", undefined, true)}
               {th("Konv.Var.", "convDurationAvg", true)}
               {th("Hit Rate", "hitRate", true)}
               {th("Kontakter Δ", "leadsDifference", true)}
@@ -82,30 +92,35 @@ export default function SalesTable({ consultants }: { consultants: Consultant[] 
           </thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={99} className="empty">Ingen konsulenter fundet</td></tr>}
-            {rows.map((c, i) => (
-              <tr key={c.id} className={`row${i % 2 === 0 ? " even" : ""}`}>
-                <td className="td nm">{c.name}</td>
-                <td className="td c"><IBar v={c.meetingIndex} /></td>
-                <td className="td c"><IBar v={c.salesIndex} /></td>
-                <td className="td c"><span className={`bdg ${c.trendPositive ? "pos" : "neg"}`}>{c.trendPositive ? "▲ Ja" : "▼ Nej"}</span></td>
-                <td className="td mn r">€{c.totalAmount.toLocaleString("da-DK")}</td>
-                <td className="td mn c">{c.totalCount}</td>
-                <td className="td mn r">€{c.avgTicketSize.toLocaleString("da-DK")}</td>
-                {weekly && Array.from({ length: 12 }, (_, i) => {
-                  const w = c.weeklyResults.find(r => r.week === i + 1)
-                  const t = w ? w.physical + w.teams + w.dinner + w.webinar : 0
-                  return <td key={i} className="td mn c">{t > 0 ? <span className="wd">{t}</span> : <span className="dm">–</span>}</td>
-                })}
-                <td className={`td mn c ${kpiClass(c.effort.physical, KPI.physical)}`}>{c.effort.physical}</td>
-                <td className={`td mn c ${kpiClass(c.effort.teams, KPI.teams)}`}>{c.effort.teams}</td>
-                <td className={`td mn c ${kpiClass(c.effort.dinner, KPI.dinner)}`}>{c.effort.dinner}</td>
-                <td className={`td mn c ${kpiClass(c.effort.webinar, KPI.webinar)}`}>{c.effort.webinar}</td>
-                <td className="td mn c">{c.convDurationAvg.toFixed(1)}m</td>
-                <td className="td mn c">{(c.hitRate * 100).toFixed(1)}%</td>
-                <td className={`td mn c ${c.leadsDifference >= 0 ? "gn" : "rd"}`}>{c.leadsDifference >= 0 ? "+" : ""}{c.leadsDifference}</td>
-                <td className="td mn c">{c.numberOfLeads.toLocaleString("da-DK")}</td>
-              </tr>
-            ))}
+            {rows.map((c, i) => {
+              const totalMeetings = c.outcomes.completed + c.outcomes.noShow + c.outcomes.cancelled + c.outcomes.scheduled
+              return (
+                <tr key={c.id} className={`row${i % 2 === 0 ? " even" : ""}`}>
+                  <td className="td nm">{c.name}</td>
+                  <td className="td c"><IBar v={c.meetingIndex} /></td>
+                  <td className="td c"><IBar v={c.salesIndex} /></td>
+                  <td className="td mn r">€{c.totalAmount.toLocaleString("da-DK")}</td>
+                  <td className="td mn c">{c.totalCount}</td>
+                  <td className="td mn r">€{c.avgTicketSize.toLocaleString("da-DK")}</td>
+                  {weekly && Array.from({ length: 12 }, (_, i) => {
+                    const w = c.weeklyResults.find(r => r.week === i + 1)
+                    const t = w ? w.physical + w.teams + w.dinner + w.webinar : 0
+                    return <td key={i} className="td mn c">{t > 0 ? <span className="wd">{t}</span> : <span className="dm">–</span>}</td>
+                  })}
+                  <td className={`td mn c ${kpiClass(c.effort.physical, KPI.physical)}`}>{c.effort.physical}</td>
+                  <td className={`td mn c ${kpiClass(c.effort.teams, KPI.teams)}`}>{c.effort.teams}</td>
+                  <td className={`td mn c ${kpiClass(c.effort.dinner, KPI.dinner)}`}>{c.effort.dinner}</td>
+                  <td className={`td mn c ${kpiClass(c.effort.webinar, KPI.webinar)}`}>{c.effort.webinar}</td>
+                  <td className="td mn c gn">{c.outcomes.completed}{totalMeetings > 0 && <span className="pct"> {Math.round(c.outcomes.completed / totalMeetings * 100)}%</span>}</td>
+                  <td className="td mn c rd">{c.outcomes.noShow}{totalMeetings > 0 && <span className="pct"> {Math.round(c.outcomes.noShow / totalMeetings * 100)}%</span>}</td>
+                  <td className="td mn c am">{c.outcomes.cancelled}{totalMeetings > 0 && <span className="pct"> {Math.round(c.outcomes.cancelled / totalMeetings * 100)}%</span>}</td>
+                  <td className="td mn c">{c.convDurationAvg.toFixed(1)}m</td>
+                  <td className="td mn c">{(c.hitRate * 100).toFixed(1)}%</td>
+                  <td className={`td mn c ${c.leadsDifference >= 0 ? "gn" : "rd"}`}>{c.leadsDifference >= 0 ? "+" : ""}{c.leadsDifference}</td>
+                  <td className="td mn c">{c.numberOfLeads.toLocaleString("da-DK")}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

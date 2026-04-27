@@ -1,14 +1,32 @@
 import { hsGet, fetchAll } from "./client"
 import { calcMeetingIndex, calcSalesIndex, classifyMeeting } from "./metrics"
-import { Consultant, DashboardData, WeeklyResult } from "@/types/sales"
+import { Consultant, DashboardData, MeetingOutcomes, WeeklyResult } from "@/types/sales"
 
-// Teams whose members appear on this dashboard
-const TEAM_PATTERNS = ["team denmark", "denmark", "bu dk", "telemarketing tm"]
+// Exact-match team names (case-insensitive). "bu dk" alone is too broad.
+const TEAM_PATTERNS = [
+  "team denmark",
+  "bu dk - telemarketing tm",
+  "bu dk - telemarketing",
+  "telemarketing tm",
+]
 
-// Returns relative week 1–12 using simple day arithmetic, no ISO-week year issues
+function matchesTeam(teamName: string): boolean {
+  const n = teamName.toLowerCase().trim()
+  return TEAM_PATTERNS.some(p => n === p || n.includes(p))
+}
+
+// Returns relative week 1–12 using day arithmetic — no ISO-week year-boundary issues
 function relWeek(ts: number, windowStart: number): number {
   const days = (ts - windowStart) / 86400000
   return Math.max(1, Math.min(12, Math.floor(days / 7) + 1))
+}
+
+function classifyOutcome(raw: string): keyof MeetingOutcomes {
+  const v = raw.toUpperCase()
+  if (v === "COMPLETED")                        return "completed"
+  if (v === "NO_SHOW")                          return "noShow"
+  if (v === "CANCELED" || v === "CANCELLED")    return "cancelled"
+  return "scheduled"
 }
 
 export async function fetchDashboardData(): Promise<DashboardData> {
@@ -25,13 +43,10 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
   // Filter to configured teams — fall back to all owners if no team data found
   const teamOwners = allOwners.filter((o: any) =>
-    o.teams?.some((t: any) => {
-      const n = (t.name || "").toLowerCase()
-      return TEAM_PATTERNS.some(p => n.includes(p))
-    })
+    o.teams?.some((t: any) => matchesTeam(t.name || ""))
   )
-  const teamIds        = new Set(teamOwners.map((o: any) => String(o.id)))
-  const useTeamFilter  = teamIds.size > 0
+  const teamIds       = new Set(teamOwners.map((o: any) => String(o.id)))
+  const useTeamFilter = teamIds.size > 0
 
   // 2. Closed-won deals last 12 weeks
   const deals12w = await fetchAll("/crm/v3/objects/deals/search", {
@@ -54,22 +69,22 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     limit: 200,
   })
 
-  // 4. Active owners in the last 12 weeks AND in the configured teams
-  const activeIds = [...new Set(
-    deals12w.map((d: any) => d.properties.hubspot_owner_id).filter(Boolean)
-  )] as string[]
-
-  const activeOwners = allOwners.filter((o: any) => {
-    const oid = String(o.id)
-    return activeIds.includes(oid) &&
-           o.firstName &&
-           (!useTeamFilter || teamIds.has(oid))
-  })
+  // 4. Relevant owners — in team AND had deals OR meetings (we'll discover meetings below)
+  //    Start with team members; if no team filter, fall back to owners with deals
+  let candidateOwners: any[]
+  if (useTeamFilter) {
+    candidateOwners = allOwners.filter((o: any) => o.firstName && teamIds.has(String(o.id)))
+  } else {
+    const activeIds = [...new Set(
+      deals12w.map((d: any) => d.properties.hubspot_owner_id).filter(Boolean)
+    )] as string[]
+    candidateOwners = allOwners.filter((o: any) => activeIds.includes(String(o.id)) && o.firstName)
+  }
 
   // 5. Contacts — batched 3 owners per request (HubSpot filterGroups hard limit)
   let contacts: any[] = []
-  if (activeOwners.length > 0) {
-    const ids     = activeOwners.map((o: any) => String(o.id))
+  if (candidateOwners.length > 0) {
+    const ids     = candidateOwners.map((o: any) => String(o.id))
     const chunks: string[][] = []
     for (let i = 0; i < ids.length; i += 3) chunks.push(ids.slice(i, i + 3))
     const settled = await Promise.allSettled(
@@ -85,10 +100,10 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   }
 
   // 6. Build per-consultant data
-  const rawList = await Promise.all(activeOwners.map(async (owner: any) => {
+  const rawList = await Promise.all(candidateOwners.map(async (owner: any) => {
     const oid = String(owner.id)
 
-    // Meetings — hs_meeting_type used as primary classification signal
+    // Meetings — includes type and outcome properties
     let meetings: any[] = []
     try {
       meetings = await fetchAll("/crm/v3/objects/meetings/search", {
@@ -96,7 +111,13 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           { propertyName: "hubspot_owner_id",      operator: "EQ",  value: oid },
           { propertyName: "hs_meeting_start_time", operator: "GTE", value: win.toString() },
         ]}],
-        properties: ["hs_meeting_title", "hs_meeting_start_time", "hs_internal_meeting_notes", "hs_meeting_type"],
+        properties: [
+          "hs_meeting_title",
+          "hs_meeting_start_time",
+          "hs_internal_meeting_notes",
+          "hs_meeting_type",
+          "hs_meeting_outcome",
+        ],
         limit: 200,
       })
     } catch { /* meetings scope may not be enabled */ }
@@ -107,17 +128,22 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       wMap[w] = { week: w, physical: 0, teams: 0, dinner: 0, webinar: 0, amount: 0, count: 0 }
     }
 
+    const outcomes: MeetingOutcomes = { completed: 0, noShow: 0, cancelled: 0, scheduled: 0 }
+
     meetings.forEach((m: any) => {
       const t = m.properties?.hs_meeting_start_time
-      if (!t) return
-      const ts   = parseInt(t)
-      const wIdx = relWeek(ts, win)
-      const type = classifyMeeting(
-        m.properties?.hs_meeting_title          || "",
-        m.properties?.hs_internal_meeting_notes || "",
-        m.properties?.hs_meeting_type           || "",
-      )
-      wMap[wIdx][type]++
+      if (t) {
+        const ts   = parseInt(t)
+        const wIdx = relWeek(ts, win)
+        const type = classifyMeeting(
+          m.properties?.hs_meeting_title          || "",
+          m.properties?.hs_internal_meeting_notes || "",
+          m.properties?.hs_meeting_type           || "",
+        )
+        wMap[wIdx][type]++
+      }
+      // Outcome counts for all meetings in the window
+      outcomes[classifyOutcome(m.properties?.hs_meeting_outcome || "")]++
     })
 
     const ownerDeals = deals12w.filter((d: any) => d.properties.hubspot_owner_id === oid)
@@ -131,9 +157,8 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       const created = new Date(d.properties.createdate)
       const closed  = new Date(d.properties.closedate)
       totalDuration += (closed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24 * 30)
-      const wIdx    = relWeek(closed.getTime(), win)
-      wMap[wIdx].amount += amt
-      wMap[wIdx].count++
+      wMap[relWeek(closed.getTime(), win)].amount += amt
+      wMap[relWeek(closed.getTime(), win)].count++
     })
 
     const totalCount    = ownerDeals.length
@@ -173,6 +198,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       totalCount,
       avgTicketSize: totalCount > 0 ? Math.round(totalAmount / totalCount) : 0,
       effort,
+      outcomes,
       convDurationAvg: totalCount > 0 ? parseFloat((totalDuration / totalCount).toFixed(1)) : 0,
       hitRate:         ownerContacts.length > 0 ? totalCount / ownerContacts.length : 0,
       leadsDifference: recentLeads - priorLeads,
@@ -187,14 +213,15 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const teamAvgMeet = meetCounts.length ? meetCounts.reduce((a, b) => a + b, 0) / meetCounts.length : 1
 
   const consultants: Consultant[] = rawList
-    .filter(c => c.totalCount > 0)
+    // Include anyone with meetings OR deals — telemarketers may have 0 deals
+    .filter(c => c._meetings > 0 || c.totalCount > 0)
+    .sort((a, b) => b._meetings - a._meetings || b._amount - a._amount)
     .map(({ _amount, _meetings, ...c }) => ({
       ...c,
       meetingIndex: calcMeetingIndex(c.weeklyResults, teamAvgMeet),
       salesIndex:   calcSalesIndex(_amount, teamAvgAmt),
       hitRate:      parseFloat(c.hitRate.toFixed(4)),
     }))
-    .sort((a, b) => b.totalAmount - a.totalAmount)
 
   return {
     consultants,
